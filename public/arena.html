@@ -283,6 +283,36 @@ html, body {
   color: var(--red);
 }
 
+.player-st-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(0, 255, 136, 0.08);
+  color: var(--green);
+  border: 1px solid rgba(0, 255, 136, 0.15);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.player-st-badge.medium {
+  background: rgba(255, 215, 0, 0.08);
+  color: var(--gold);
+  border-color: rgba(255, 215, 0, 0.15);
+}
+
+.player-st-badge.low {
+  background: rgba(255, 68, 68, 0.08);
+  color: var(--red);
+  border-color: rgba(255, 68, 68, 0.15);
+}
+
+.player-st-badge.none {
+  background: rgba(102, 102, 102, 0.08);
+  color: var(--text-dim);
+  border-color: rgba(102, 102, 102, 0.15);
+}
+
 .player-vote-check {
   color: var(--green);
   font-size: 14px;
@@ -377,6 +407,89 @@ html, body {
 
 .vote-detail-row .target {
   color: var(--red);
+}
+
+/* ===================================================================
+   SwarmTrade Promo Banner
+   =================================================================== */
+
+.swarmtrade-banner {
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.swarmtrade-banner a {
+  display: block;
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 255, 136, 0.12);
+  background: rgba(0, 255, 136, 0.03);
+  transition: all 0.2s ease;
+}
+
+.swarmtrade-banner a:hover {
+  border-color: rgba(0, 255, 136, 0.25);
+  background: rgba(0, 255, 136, 0.06);
+}
+
+.swarmtrade-banner .st-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--green);
+  margin-bottom: 2px;
+}
+
+.swarmtrade-banner .st-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.swarmtrade-banner .st-link {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+
+/* ===================================================================
+   Winner SwarmTrade callout
+   =================================================================== */
+
+.winner-st-callout {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.winner-st-callout .st-boost {
+  color: var(--green);
+  font-weight: 500;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.winner-st-callout a {
+  display: inline-block;
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--green);
+  text-decoration: none;
+  padding: 6px 16px;
+  border: 1px solid rgba(0, 255, 136, 0.3);
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.winner-st-callout a:hover {
+  background: rgba(0, 255, 136, 0.1);
 }
 
 /* ===================================================================
@@ -809,6 +922,13 @@ html, body {
       <div id="voteBars"></div>
       <div id="voteDetails"></div>
     </div>
+    <div class="swarmtrade-banner">
+      <a href="https://swarmtrade.store" target="_blank" rel="noopener">
+        <div class="st-label">Powered by SwarmTrade</div>
+        <div class="st-desc">Agent-to-agent commerce</div>
+        <div class="st-link">swarmtrade.store &rarr;</div>
+      </a>
+    </div>
   </div>
 
   <!-- Live Feed -->
@@ -849,6 +969,7 @@ html, body {
     maxPlayers: 8,
     spectatorCount: 0,
     gameOver: false,
+    swarmtradeProfiles: {},  // agent_id -> { trust_score, total_trades, avg_rating }
   };
 
   // -------------------------------------------------------------------
@@ -939,6 +1060,37 @@ html, body {
   }
 
   // -------------------------------------------------------------------
+  // SwarmTrade Profiles
+  // -------------------------------------------------------------------
+
+  async function fetchSwarmTradeProfiles() {
+    if (!state.arenaId) return;
+    try {
+      var res = await fetch('/arenas/' + state.arenaId + '/players-profile');
+      if (!res.ok) return;
+      var data = await res.json();
+      if (data.players) {
+        for (var i = 0; i < data.players.length; i++) {
+          var p = data.players[i];
+          if (p.swarmtrade) {
+            state.swarmtradeProfiles[p.agent_id] = p.swarmtrade;
+          }
+        }
+        renderPlayers();
+      }
+    } catch (e) {
+      // SwarmTrade data is optional — silently ignore
+    }
+  }
+
+  function getStBadgeClass(score) {
+    if (score == null) return 'none';
+    if (score >= 70) return '';
+    if (score >= 40) return 'medium';
+    return 'low';
+  }
+
+  // -------------------------------------------------------------------
   // Players Panel
   // -------------------------------------------------------------------
 
@@ -973,6 +1125,16 @@ html, body {
       name.className = 'player-name';
       name.textContent = p.display_name;
 
+      // SwarmTrade trust score badge
+      const stProfile = state.swarmtradeProfiles[id];
+      const stBadge = document.createElement('div');
+      const stScore = stProfile ? stProfile.trust_score : null;
+      stBadge.className = 'player-st-badge ' + getStBadgeClass(stScore);
+      stBadge.textContent = stScore != null ? 'ST: ' + stScore : 'ST: --';
+      stBadge.title = stProfile
+        ? 'SwarmTrade Trust Score: ' + stScore + ' | Trades: ' + stProfile.total_trades
+        : 'No SwarmTrade data';
+
       const statusEl = document.createElement('div');
       statusEl.className = 'player-status';
       if (p.status === 'winner') {
@@ -992,6 +1154,7 @@ html, body {
 
       card.appendChild(dot);
       card.appendChild(name);
+      card.appendChild(stBadge);
       if (state.currentPhase === 'voting' && p.status === 'active') {
         card.appendChild(voteCheck);
       }
@@ -1247,15 +1410,19 @@ html, body {
     // Prize in ETH
     const ethAmount = weiToEth(data.prize_wei);
 
-    // Create winner overlay
+    // Create winner overlay with SwarmTrade callout
     const overlay = document.createElement('div');
     overlay.className = 'winner-overlay';
     overlay.innerHTML =
       '<div class="winner-card">' +
-        '<div class="winner-crown">\uD83D\uDC51</div>' +
+        '<div class="winner-crown">\uD83C\uDFC6</div>' +
         '<div class="winner-title">SOLE SURVIVOR</div>' +
         '<div class="winner-name">' + escapeHtml(data.winner_name) + '</div>' +
         '<div class="winner-prize">' + ethAmount + ' <span class="eth">ETH</span></div>' +
+        '<div class="winner-st-callout">' +
+          '<div class="st-boost">Trust score boosted on SwarmTrade</div>' +
+          '<a href="https://swarmtrade.store" target="_blank" rel="noopener">Trade with the champion &rarr; swarmtrade.store</a>' +
+        '</div>' +
       '</div>';
     document.body.appendChild(overlay);
 
@@ -1434,6 +1601,9 @@ html, body {
       // Show UI
       loading.style.display = 'none';
       arenaEl.style.display = '';
+
+      // Fetch SwarmTrade profiles (non-blocking)
+      fetchSwarmTradeProfiles();
 
       // Connect SSE
       if (arena.status !== 'cancelled') {

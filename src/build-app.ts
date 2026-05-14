@@ -13,6 +13,7 @@ import { GameEngine } from "./game-engine.js";
 import { SpectatorFeed } from "./spectator-feed.js";
 import { ArenaEscrow } from "./escrow.js";
 import { setupHealthMonitoring } from "./health.js";
+import type { SwarmTradeIntegration } from "./swarmtrade.js";
 import type {
   ArenaStatus,
   CreateArenaParams,
@@ -44,10 +45,12 @@ export async function buildApp(opts: {
   pool: Pool;
   adminKey: string;
   escrow?: ArenaEscrow;
+  swarmtrade?: SwarmTradeIntegration;
   logger?: boolean;
 }): Promise<{ app: FastifyInstance; engine: GameEngine; feed: SpectatorFeed }> {
   const { pool, adminKey } = opts;
   const escrow = opts.escrow ?? new ArenaEscrow(process.env.ESCROW_WALLET_PRIVATE_KEY);
+  const swarmtrade = opts.swarmtrade;
 
   const app = Fastify({ logger: opts.logger ?? false });
   const repo = new ArenaRepo(pool);
@@ -56,6 +59,7 @@ export async function buildApp(opts: {
     repo,
     (arenaId, event) => feed.broadcast(arenaId, event),
     escrow,
+    swarmtrade,
   );
 
   // -----------------------------------------------------------------------
@@ -246,7 +250,7 @@ export async function buildApp(opts: {
     };
   });
 
-  // GET /arenas/:id — arena detail
+  // GET /arenas/:id — arena detail (with optional SwarmTrade trust scores)
   app.get<{ Params: { id: string } }>(
     "/arenas/:id",
     async (request) => {
@@ -265,14 +269,76 @@ export async function buildApp(opts: {
             )
           : null;
 
+      // Enrich players with SwarmTrade trust scores (graceful degradation)
+      let enrichedPlayers = players.map((p) => ({
+        ...p,
+        swarmtrade_trust_score: null as number | null,
+      }));
+
+      if (swarmtrade) {
+        const profiles = await Promise.allSettled(
+          players.map((p) => swarmtrade.getAgentReputation(p.agent_id)),
+        );
+        enrichedPlayers = players.map((p, i) => {
+          const result = profiles[i];
+          const rep =
+            result.status === "fulfilled" ? result.value : null;
+          return {
+            ...p,
+            swarmtrade_trust_score: rep?.trust_score ?? null,
+          };
+        });
+      }
+
       return {
         arena,
-        players,
+        players: enrichedPlayers,
         current_round: arena.current_round,
         current_phase: arena.current_phase,
         phase_ends_at: arena.phase_ends_at,
         phase_remaining_s: phaseRemainingS,
       };
+    },
+  );
+
+  // GET /arenas/:id/players-profile — players with SwarmTrade reputation data
+  app.get<{ Params: { id: string } }>(
+    "/arenas/:id/players-profile",
+    async (request) => {
+      const arena = await repo.getArena(request.params.id);
+      if (!arena) httpError(404, "Arena not found");
+
+      const players = await repo.getPlayers(arena.id);
+
+      const profileData = await Promise.allSettled(
+        players.map((p) =>
+          swarmtrade
+            ? swarmtrade.getAgentProfile(p.agent_id)
+            : Promise.resolve(null),
+        ),
+      );
+
+      const result = players.map((p, i) => {
+        const profileResult = profileData[i];
+        const profile =
+          profileResult.status === "fulfilled"
+            ? profileResult.value
+            : null;
+        return {
+          agent_id: p.agent_id,
+          display_name: p.display_name,
+          status: p.status,
+          swarmtrade: profile
+            ? {
+                trust_score: profile.trust_score,
+                total_trades: profile.total_trades,
+                avg_rating: profile.avg_rating,
+              }
+            : null,
+        };
+      });
+
+      return { players: result };
     },
   );
 

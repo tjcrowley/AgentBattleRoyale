@@ -1,5 +1,6 @@
 import type { ArenaRepo } from "./arena-repo.js";
 import type { ArenaEscrow } from "./escrow.js";
+import type { SwarmTradeIntegration } from "./swarmtrade.js";
 import type {
   Arena,
   ArenaPhase,
@@ -38,13 +39,16 @@ export function djb2(input: string): number {
 
 export class GameEngine {
   private readonly escrow?: ArenaEscrow;
+  private readonly swarmtrade?: SwarmTradeIntegration;
 
   constructor(
     private readonly repo: ArenaRepo,
     private readonly broadcast: BroadcastFn,
     escrow?: ArenaEscrow,
+    swarmtrade?: SwarmTradeIntegration,
   ) {
     this.escrow = escrow;
+    this.swarmtrade = swarmtrade;
   }
 
   // -----------------------------------------------------------------------
@@ -377,6 +381,22 @@ export class GameEngine {
         prize_wei: prizeWei.toString(),
       },
     });
+
+    // Report result to SwarmTrade (fire-and-forget -- don't block game flow)
+    if (this.swarmtrade) {
+      const allPlayers = await this.repo.getPlayers(arena.id);
+      const eliminatedIds = allPlayers
+        .filter((p) => p.status === "eliminated")
+        .map((p) => p.agent_id);
+      this.swarmtrade
+        .reportArenaResult(winner.agent_id, eliminatedIds)
+        .catch((err) => {
+          console.warn(
+            `[GameEngine] SwarmTrade reportArenaResult failed:`,
+            err,
+          );
+        });
+    }
   }
 
   // -----------------------------------------------------------------------
