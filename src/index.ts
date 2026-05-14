@@ -23,4 +23,14 @@ process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
 await app.listen({ port, host: "0.0.0.0" });
-console.log(`AI Survivor running on port ${port}`);
+
+console.log("=".repeat(50));
+console.log("  AI Survivor -- Agent Battle Royale");
+console.log("=".repeat(50));
+console.log(`  Port:      ${port}`);
+console.log(`  Escrow:    ${escrow.isEnabled() ? "ENABLED" : "MOCK MODE"}`);
+if (escrow.getWalletAddress()) {
+  console.log(`  Wallet:    ${escrow.getWalletAddress()}`);
+}
+console.log("  Game loop: 5s tick");
+console.log("=".repeat(50));

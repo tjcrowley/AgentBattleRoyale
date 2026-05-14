@@ -1,0 +1,57 @@
+# DigitalOcean App Platform specification for AI Survivor
+#
+# To deploy:
+#   doctl apps create --spec app-spec.yaml
+#
+# COST NOTE: This spec provisions a standalone managed Postgres database.
+# If you already have a managed DB (e.g. from SwarmTrade), you can:
+#   1. Remove the `databases:` section entirely
+#   2. Set DATABASE_URL as a plain env var pointing to your existing DB
+#   3. This avoids the ~$15/mo cost of a second managed DB instance
+
+name: agent-battle-royale
+region: sfo
+
+services:
+- name: ai-survivor-api
+  github:
+    repo: tjcrowley/AgentBattleRoyale
+    branch: main
+    deploy_on_push: true
+  dockerfile_path: Dockerfile
+  instance_size_slug: basic-xs
+  instance_count: 1
+  envs:
+  - key: DATABASE_URL
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+    value: "${db.DATABASE_URL}"
+  - key: ADMIN_API_KEY
+    scope: RUN_TIME
+    type: SECRET
+    value: ""
+  - key: ESCROW_WALLET_PRIVATE_KEY
+    scope: RUN_TIME
+    type: SECRET
+    value: ""
+  - key: EVM_RPC_URL_8453
+    scope: RUN_TIME
+    value: ""
+  - key: EVM_RPC_URL_84532
+    scope: RUN_TIME
+    value: ""
+  - key: SLACK_WEBHOOK_URL
+    scope: RUN_TIME
+    value: ""
+  - key: NODE_ENV
+    scope: RUN_TIME
+    value: "production"
+  routes:
+  - path: /
+
+databases:
+- name: db
+  engine: PG
+  version: "16"
+  size: db-s-1vcpu-1gb
+  num_nodes: 1

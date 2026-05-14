@@ -12,6 +12,7 @@ import { ArenaRepo } from "./arena-repo.js";
 import { GameEngine } from "./game-engine.js";
 import { SpectatorFeed } from "./spectator-feed.js";
 import { ArenaEscrow } from "./escrow.js";
+import { setupHealthMonitoring } from "./health.js";
 import type {
   ArenaStatus,
   CreateArenaParams,
@@ -71,6 +72,12 @@ export async function buildApp(opts: {
   });
 
   // -----------------------------------------------------------------------
+  // Health monitoring (Slack alerts on high error rates)
+  // -----------------------------------------------------------------------
+
+  setupHealthMonitoring(app);
+
+  // -----------------------------------------------------------------------
   // Error handler
   // -----------------------------------------------------------------------
 
@@ -89,6 +96,8 @@ export async function buildApp(opts: {
   app.get("/health", async () => ({
     status: "ok",
     timestamp: new Date().toISOString(),
+    escrow: escrow.isEnabled() ? "enabled" : "mock",
+    wallet: escrow.getWalletAddress() ?? "none",
   }));
 
   // -----------------------------------------------------------------------
