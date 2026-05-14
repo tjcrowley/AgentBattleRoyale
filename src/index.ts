@@ -1,11 +1,13 @@
 import pg from "pg";
 import { buildApp } from "./build-app.js";
+import { ArenaEscrow } from "./escrow.js";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const adminKey = process.env.ADMIN_API_KEY || "dev-admin-key";
 const port = parseInt(process.env.PORT || "8080", 10);
 
-const { app, engine } = await buildApp({ pool, adminKey, logger: true });
+const escrow = new ArenaEscrow(process.env.ESCROW_WALLET_PRIVATE_KEY);
+const { app, engine } = await buildApp({ pool, adminKey, escrow, logger: true });
 
 // Game loop: tick every 5 seconds
 const gameLoop = setInterval(() => engine.tick(), 5000);

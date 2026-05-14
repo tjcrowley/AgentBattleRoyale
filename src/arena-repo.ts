@@ -430,6 +430,14 @@ export class ArenaRepo {
   // Payout Operations
   // -------------------------------------------------------------------------
 
+  async getPayouts(arenaId: string): Promise<ArenaPayout[]> {
+    const { rows } = await this.pool.query(
+      `SELECT * FROM arena_payouts WHERE arena_id = $1 ORDER BY created_at ASC`,
+      [arenaId],
+    );
+    return rows.map(mapPayout);
+  }
+
   async createPayout(
     arenaId: string,
     agentId: string,

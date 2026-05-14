@@ -11,6 +11,7 @@ import type { Pool } from "pg";
 import { ArenaRepo } from "./arena-repo.js";
 import { GameEngine } from "./game-engine.js";
 import { SpectatorFeed } from "./spectator-feed.js";
+import { ArenaEscrow } from "./escrow.js";
 import type {
   ArenaStatus,
   CreateArenaParams,
@@ -41,15 +42,19 @@ function httpError(statusCode: number, message: string): never {
 export async function buildApp(opts: {
   pool: Pool;
   adminKey: string;
+  escrow?: ArenaEscrow;
   logger?: boolean;
 }): Promise<{ app: FastifyInstance; engine: GameEngine; feed: SpectatorFeed }> {
   const { pool, adminKey } = opts;
+  const escrow = opts.escrow ?? new ArenaEscrow(process.env.ESCROW_WALLET_PRIVATE_KEY);
 
   const app = Fastify({ logger: opts.logger ?? false });
   const repo = new ArenaRepo(pool);
   const feed = new SpectatorFeed();
-  const engine = new GameEngine(repo, (arenaId, event) =>
-    feed.broadcast(arenaId, event),
+  const engine = new GameEngine(
+    repo,
+    (arenaId, event) => feed.broadcast(arenaId, event),
+    escrow,
   );
 
   // -----------------------------------------------------------------------
@@ -122,6 +127,88 @@ export async function buildApp(opts: {
       reply.send(updated);
     },
   );
+
+  // POST /admin/arenas/:id/payout — trigger winner payout
+  app.post<{ Params: { id: string } }>(
+    "/admin/arenas/:id/payout",
+    async (request, reply) => {
+      requireAdmin(request);
+      const arena = await repo.getArena(request.params.id);
+      if (!arena) httpError(404, "Arena not found");
+      if (arena.status !== "complete") {
+        httpError(400, `Arena is '${arena.status}', expected 'complete'`);
+      }
+      if (!arena.winner_id) {
+        httpError(400, "Arena has no winner");
+      }
+
+      // Get pending payouts for this arena
+      const allPayouts = await repo.getPayouts(arena.id);
+      const pendingPayouts = allPayouts.filter((p) => p.status === "pending");
+
+      if (pendingPayouts.length === 0) {
+        return { status: "no_pending_payouts", payouts: [] };
+      }
+
+      const results: Array<{
+        payout_id: number;
+        agent_id: string;
+        amount_wei: string;
+        tx_hash?: string;
+        error?: string;
+      }> = [];
+
+      for (const payout of pendingPayouts) {
+        // Skip rake payouts (platform keeps those)
+        if (payout.type === "rake") {
+          results.push({
+            payout_id: payout.id,
+            agent_id: payout.agent_id,
+            amount_wei: payout.amount_wei,
+            tx_hash: "rake:retained",
+          });
+          await repo.updatePayoutStatus(payout.id, "confirmed", "rake:retained");
+          continue;
+        }
+
+        try {
+          const { txHash } = await escrow.sendPayout({
+            to: payout.agent_id,
+            amountWei: payout.amount_wei,
+            chainId: arena.chain_id,
+          });
+          await repo.updatePayoutStatus(payout.id, "sent", txHash);
+          results.push({
+            payout_id: payout.id,
+            agent_id: payout.agent_id,
+            amount_wei: payout.amount_wei,
+            tx_hash: txHash,
+          });
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          await repo.updatePayoutStatus(payout.id, "failed");
+          results.push({
+            payout_id: payout.id,
+            agent_id: payout.agent_id,
+            amount_wei: payout.amount_wei,
+            error: errorMsg,
+          });
+        }
+      }
+
+      return { status: "processed", payouts: results };
+    },
+  );
+
+  // GET /admin/wallet — platform wallet info
+  app.get("/admin/wallet", async (request) => {
+    requireAdmin(request);
+    const address = escrow.getWalletAddress();
+    return {
+      enabled: escrow.isEnabled(),
+      address: address ?? null,
+    };
+  });
 
   // -----------------------------------------------------------------------
   // Public routes (no auth)
@@ -207,6 +294,21 @@ export async function buildApp(opts: {
       deposit_tx_hash?: string;
     };
     if (!body?.display_name) httpError(400, "display_name is required");
+
+    // Deposit verification
+    if (escrow.isEnabled()) {
+      if (!body.deposit_tx_hash) {
+        httpError(400, "deposit_tx_hash required when escrow is enabled");
+      }
+      const result = await escrow.verifyDeposit({
+        txHash: body.deposit_tx_hash,
+        expectedAmount: arena.entry_fee_wei,
+        chainId: arena.chain_id,
+      });
+      if (!result.verified) {
+        httpError(402, result.error ?? "Deposit verification failed");
+      }
+    }
 
     // Check for duplicate join
     const existingPlayers = await repo.getPlayers(arena.id);

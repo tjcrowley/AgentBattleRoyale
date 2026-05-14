@@ -1,4 +1,5 @@
 import type { ArenaRepo } from "./arena-repo.js";
+import type { ArenaEscrow } from "./escrow.js";
 import type {
   Arena,
   ArenaPhase,
@@ -36,10 +37,15 @@ export function djb2(input: string): number {
 // ---------------------------------------------------------------------------
 
 export class GameEngine {
+  private readonly escrow?: ArenaEscrow;
+
   constructor(
     private readonly repo: ArenaRepo,
     private readonly broadcast: BroadcastFn,
-  ) {}
+    escrow?: ArenaEscrow,
+  ) {
+    this.escrow = escrow;
+  }
 
   // -----------------------------------------------------------------------
   // startArena — transitions a 'full' arena into round 1 alliance phase
@@ -328,7 +334,7 @@ export class GameEngine {
     const rakeWei = prizePool - prizeWei;
 
     // Create payout records
-    await this.repo.createPayout(
+    const prizePayout = await this.repo.createPayout(
       arena.id,
       winner.agent_id,
       prizeWei.toString(),
@@ -343,6 +349,24 @@ export class GameEngine {
         rakeWei.toString(),
         "rake",
       );
+    }
+
+    // Auto-send winner payout if escrow is enabled
+    if (this.escrow?.isEnabled()) {
+      try {
+        const { txHash } = await this.escrow.sendPayout({
+          to: winner.agent_id,
+          amountWei: prizeWei.toString(),
+          chainId: arena.chain_id,
+        });
+        await this.repo.updatePayoutStatus(prizePayout.id, "sent", txHash);
+      } catch (err) {
+        console.error(
+          `[GameEngine] Auto-payout failed for arena ${arena.id}:`,
+          err,
+        );
+        await this.repo.updatePayoutStatus(prizePayout.id, "failed");
+      }
     }
 
     this.broadcast(arena.id, {
