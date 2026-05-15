@@ -3,7 +3,11 @@ import { buildApp } from "./build-app.js";
 import { ArenaEscrow } from "./escrow.js";
 import { SwarmTradeIntegration } from "./swarmtrade.js";
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const connectionString = process.env.DATABASE_URL;
+const ssl = connectionString?.includes("sslmode=require")
+  ? { rejectUnauthorized: false }
+  : undefined;
+const pool = new pg.Pool({ connectionString, ssl });
 const adminKey = process.env.ADMIN_API_KEY || "dev-admin-key";
 const port = parseInt(process.env.PORT || "8080", 10);
 
@@ -18,7 +22,13 @@ const { app, engine } = await buildApp({
 });
 
 // Game loop: tick every 5 seconds
-const gameLoop = setInterval(() => engine.tick(), 5000);
+const gameLoop = setInterval(async () => {
+  try {
+    await engine.tick();
+  } catch (err: any) {
+    console.error("[game-loop] tick error:", err.message);
+  }
+}, 5000);
 
 // Graceful shutdown
 const shutdown = async () => {
