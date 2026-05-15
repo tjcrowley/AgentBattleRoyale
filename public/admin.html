@@ -1,0 +1,2417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-L0B4JY1D75"></script>
+<script>
+ window.dataLayer = window.dataLayer || [];
+ function gtag(){dataLayer.push(arguments);}
+ gtag('js', new Date());
+ gtag('config', 'G-L0B4JY1D75');
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<title>AI SURVIVOR - Admin Dashboard</title>
+<style>
+/* ===================================================================
+   AI SURVIVOR — Admin Dashboard
+   Dark theme, matching site design system
+   =================================================================== */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg:          #0a0a0f;
+  --surface:     #12121a;
+  --border:      #1e1e2e;
+  --text:        #e0e0e0;
+  --text-dim:    #666;
+  --green:       #00ff88;
+  --red:         #ff4444;
+  --gold:        #ffd700;
+  --blue:        #4488ff;
+  --purple:      #aa66ff;
+  --orange:      #ff8844;
+  --yellow:      #ffcc00;
+  --cyan:        #00ccff;
+  --font-mono:   'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-ui:     system-ui, -apple-system, sans-serif;
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+/* ===================================================================
+   Login Screen
+   =================================================================== */
+
+.login-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.login-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 48px 40px;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+}
+
+.login-box h1 {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  color: var(--green);
+  margin-bottom: 8px;
+  letter-spacing: 2px;
+}
+
+.login-box p {
+  color: var(--text-dim);
+  font-size: 14px;
+  margin-bottom: 32px;
+}
+
+.login-box input {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  margin-bottom: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.login-box input:focus {
+  border-color: var(--green);
+}
+
+.login-box button {
+  width: 100%;
+  padding: 12px;
+  background: var(--green);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.login-box button:hover {
+  opacity: 0.85;
+}
+
+.login-error {
+  color: var(--red);
+  font-size: 13px;
+  margin-top: 12px;
+  display: none;
+}
+
+/* ===================================================================
+   Dashboard Shell
+   =================================================================== */
+
+.dashboard {
+  display: none;
+  min-height: 100vh;
+}
+
+.dashboard.active {
+  display: block;
+}
+
+/* Top bar */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.topbar-brand {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--green);
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+
+.topbar-brand span {
+  color: var(--text-dim);
+  font-weight: 400;
+  font-size: 12px;
+  margin-left: 12px;
+  letter-spacing: 0;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.topbar-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.topbar-status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.btn-logout {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-logout:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* Tab Navigation */
+.tab-nav {
+  display: flex;
+  gap: 2px;
+  padding: 0 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  color: var(--text);
+  background: rgba(255,255,255,0.02);
+}
+
+.tab-btn.active {
+  color: var(--green);
+  border-bottom-color: var(--green);
+}
+
+.tab-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+/* Tab Content */
+.tab-content {
+  display: none;
+  padding: 24px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* ===================================================================
+   Stat Cards
+   =================================================================== */
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--green);
+  opacity: 0.5;
+}
+
+.stat-card.accent-blue::before { background: var(--blue); }
+.stat-card.accent-gold::before { background: var(--gold); }
+.stat-card.accent-purple::before { background: var(--purple); }
+.stat-card.accent-red::before { background: var(--red); }
+.stat-card.accent-orange::before { background: var(--orange); }
+
+.stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.stat-value.green { color: var(--green); }
+.stat-value.blue { color: var(--blue); }
+.stat-value.gold { color: var(--gold); }
+.stat-value.red { color: var(--red); }
+
+.stat-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+/* ===================================================================
+   Charts
+   =================================================================== */
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.chart-card h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text);
+}
+
+.chart-card canvas {
+  width: 100% !important;
+  max-height: 280px;
+}
+
+/* ===================================================================
+   Tables
+   =================================================================== */
+
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.table-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.table-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-select, .filter-input {
+  padding: 6px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+
+.filter-select:focus, .filter-input:focus {
+  border-color: var(--green);
+}
+
+.filter-input {
+  width: 130px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+thead th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  background: rgba(0,0,0,0.2);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+thead th:hover {
+  color: var(--text);
+}
+
+thead th.sorted-asc::after { content: ' \u25B2'; font-size: 9px; }
+thead th.sorted-desc::after { content: ' \u25BC'; font-size: 9px; }
+
+tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  transition: background 0.15s;
+}
+
+tbody tr:hover {
+  background: rgba(255,255,255,0.02);
+}
+
+tbody tr.clickable {
+  cursor: pointer;
+}
+
+tbody td {
+  padding: 10px 14px;
+  white-space: nowrap;
+}
+
+/* ===================================================================
+   Badges
+   =================================================================== */
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-green  { background: rgba(0,255,136,0.12); color: var(--green); }
+.badge-yellow { background: rgba(255,204,0,0.12); color: var(--yellow); }
+.badge-red    { background: rgba(255,68,68,0.12); color: var(--red); }
+.badge-blue   { background: rgba(68,136,255,0.12); color: var(--blue); }
+.badge-orange { background: rgba(255,136,68,0.12); color: var(--orange); }
+.badge-purple { background: rgba(170,102,255,0.12); color: var(--purple); }
+.badge-dim    { background: rgba(255,255,255,0.05); color: var(--text-dim); }
+
+/* ===================================================================
+   Expanded Row / Detail Panel
+   =================================================================== */
+
+.detail-panel {
+  display: none;
+  background: rgba(0,0,0,0.3);
+  border-top: 1px solid var(--border);
+}
+
+.detail-panel.open {
+  display: table-row;
+}
+
+.detail-panel td {
+  padding: 20px;
+}
+
+.detail-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.detail-section {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.detail-section h4 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.detail-section table {
+  font-size: 12px;
+}
+
+.detail-section table td {
+  padding: 4px 8px;
+}
+
+/* ===================================================================
+   Live Cards Grid
+   =================================================================== */
+
+.live-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.live-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.live-card:hover {
+  border-color: var(--green);
+  transform: translateY(-2px);
+}
+
+.live-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.live-card-id {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.live-card-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.live-card-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.live-card-stat label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+}
+
+.live-card-stat value {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.live-card-countdown {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* Live feed */
+.live-feed {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.live-feed-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.live-feed-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.live-feed-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.live-feed-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-size: 13px;
+}
+
+.live-feed-item:last-child {
+  border-bottom: none;
+}
+
+.live-feed-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  min-width: 60px;
+}
+
+/* ===================================================================
+   System Page
+   =================================================================== */
+
+.system-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.system-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.system-card h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.system-value {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.system-value.ok { color: var(--green); }
+.system-value.error { color: var(--red); }
+
+.migration-list {
+  list-style: none;
+}
+
+.migration-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-size: 13px;
+}
+
+.migration-list li:last-child {
+  border-bottom: none;
+}
+
+.migration-name {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.migration-time {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
+/* ===================================================================
+   Copyable ID
+   =================================================================== */
+
+.copyable {
+  font-family: var(--font-mono);
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.copyable:hover {
+  color: var(--green);
+}
+
+.copy-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--green);
+  color: #000;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 999;
+  transform: translateY(80px);
+  opacity: 0;
+  transition: all 0.3s;
+}
+
+.copy-toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* ===================================================================
+   Retry Button
+   =================================================================== */
+
+.btn-retry {
+  padding: 4px 12px;
+  background: rgba(255,68,68,0.12);
+  border: 1px solid rgba(255,68,68,0.3);
+  border-radius: 6px;
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-retry:hover {
+  background: rgba(255,68,68,0.25);
+}
+
+.btn-retry:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ===================================================================
+   Loading & Empty States
+   =================================================================== */
+
+.loading-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  color: var(--text-dim);
+  font-size: 14px;
+  gap: 12px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+/* ===================================================================
+   Scrollbar
+   =================================================================== */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #333;
+}
+
+/* ===================================================================
+   Responsive
+   =================================================================== */
+
+@media (max-width: 1024px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+  .detail-inner {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .topbar {
+    padding: 0 16px;
+  }
+  .tab-content {
+    padding: 16px;
+  }
+  .tab-btn {
+    padding: 12px 14px;
+    font-size: 12px;
+  }
+  .tab-btn svg {
+    display: none;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- ================================================================
+     LOGIN SCREEN
+     ================================================================ -->
+<div id="login-screen" class="login-screen">
+  <div class="login-box">
+    <h1>AI SURVIVOR</h1>
+    <p>Admin Dashboard &mdash; Authentication Required</p>
+    <form id="login-form">
+      <input type="password" id="login-key" placeholder="Enter admin key" autocomplete="off" autofocus>
+      <button type="submit">Authenticate</button>
+    </form>
+    <div id="login-error" class="login-error">Invalid admin key. Please try again.</div>
+  </div>
+</div>
+
+<!-- ================================================================
+     DASHBOARD
+     ================================================================ -->
+<div id="dashboard" class="dashboard">
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div class="topbar-brand">
+      AI SURVIVOR<span>ADMIN</span>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-status">
+        <div class="dot"></div>
+        <span id="topbar-refresh-label">Live</span>
+      </div>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="overview">
+      <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      Overview
+    </button>
+    <button class="tab-btn" data-tab="arenas">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+      Arenas
+    </button>
+    <button class="tab-btn" data-tab="agents">
+      <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      Agents
+    </button>
+    <button class="tab-btn" data-tab="finance">
+      <svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+      Finance
+    </button>
+    <button class="tab-btn" data-tab="live">
+      <svg viewBox="0 0 24 24"><path d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.11-.9-2-2-2zm0 14H3V8h18v12zM9 10v8l7-4z"/></svg>
+      Live
+    </button>
+    <button class="tab-btn" data-tab="system">
+      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      System
+    </button>
+  </div>
+
+  <!-- ================================================================
+       TAB: OVERVIEW
+       ================================================================ -->
+  <div id="tab-overview" class="tab-content active">
+    <div class="stats-row" id="overview-stats">
+      <div class="stat-card">
+        <div class="stat-label">Total Arenas</div>
+        <div class="stat-value" id="stat-total-arenas">--</div>
+      </div>
+      <div class="stat-card accent-blue">
+        <div class="stat-label">Active Now</div>
+        <div class="stat-value blue" id="stat-active-now">--</div>
+      </div>
+      <div class="stat-card accent-purple">
+        <div class="stat-label">Unique Agents</div>
+        <div class="stat-value" id="stat-unique-agents">--</div>
+      </div>
+      <div class="stat-card accent-gold">
+        <div class="stat-label">Prize Pool Distributed</div>
+        <div class="stat-value gold" id="stat-prize-pool">--</div>
+        <div class="stat-sub">ETH</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Rake Collected</div>
+        <div class="stat-value green" id="stat-rake-collected">--</div>
+        <div class="stat-sub">ETH</div>
+      </div>
+      <div class="stat-card accent-blue">
+        <div class="stat-label">Wallet Balance</div>
+        <div class="stat-value" id="stat-wallet-balance">--</div>
+        <div class="stat-sub">ETH</div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>Arena Creation Rate (Last 30 Days)</h3>
+        <canvas id="chart-arena-creation"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Revenue Over Time (Daily Rake)</h3>
+        <canvas id="chart-revenue"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Arena Status Breakdown</h3>
+        <canvas id="chart-status-breakdown"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Player Count Distribution</h3>
+        <canvas id="chart-player-dist"></canvas>
+      </div>
+    </div>
+
+    <div class="live-feed" id="overview-live-feed">
+      <div class="live-feed-header">
+        <h3>Live Feed</h3>
+        <span class="badge badge-green">LIVE</span>
+      </div>
+      <div class="live-feed-list" id="overview-feed-list">
+        <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       TAB: ARENAS
+       ================================================================ -->
+  <div id="tab-arenas" class="tab-content">
+    <div class="table-card">
+      <div class="table-header">
+        <h3>All Arenas</h3>
+        <div class="table-filters">
+          <select id="arena-filter-status" class="filter-select" multiple title="Filter by status">
+            <option value="">All Statuses</option>
+            <option value="open">Open</option>
+            <option value="running">Running</option>
+            <option value="complete">Complete</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <input type="date" id="arena-filter-from" class="filter-input" placeholder="From date" title="From date">
+          <input type="date" id="arena-filter-to" class="filter-input" placeholder="To date" title="To date">
+          <button class="filter-select" onclick="loadArenas()" style="cursor:pointer;">Apply</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="arenas-table">
+          <thead>
+            <tr>
+              <th data-sort="id">ID</th>
+              <th data-sort="status">Status</th>
+              <th data-sort="player_count">Players</th>
+              <th data-sort="entry_fee">Entry Fee</th>
+              <th data-sort="prize_pool">Prize Pool</th>
+              <th data-sort="rake_pct">Rake %</th>
+              <th data-sort="chain">Chain</th>
+              <th data-sort="current_round">Round</th>
+              <th data-sort="phase">Phase</th>
+              <th data-sort="created_at">Created</th>
+              <th data-sort="duration">Duration</th>
+              <th data-sort="winner">Winner</th>
+            </tr>
+          </thead>
+          <tbody id="arenas-tbody">
+            <tr><td colspan="12"><div class="loading-spinner"><div class="spinner"></div> Loading arenas...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       TAB: AGENTS
+       ================================================================ -->
+  <div id="tab-agents" class="tab-content">
+    <div class="table-card">
+      <div class="table-header">
+        <h3>Agent Leaderboard</h3>
+      </div>
+      <div class="table-wrap">
+        <table id="agents-table">
+          <thead>
+            <tr>
+              <th data-sort="rank">#</th>
+              <th data-sort="agent_id">Agent ID</th>
+              <th data-sort="names">Names Used</th>
+              <th data-sort="arenas_played">Arenas</th>
+              <th data-sort="wins">Wins</th>
+              <th data-sort="win_rate">Win Rate</th>
+              <th data-sort="avg_survival">Avg Survival</th>
+              <th data-sort="total_messages">Messages</th>
+              <th data-sort="score">ST Score</th>
+            </tr>
+          </thead>
+          <tbody id="agents-tbody">
+            <tr><td colspan="9"><div class="loading-spinner"><div class="spinner"></div> Loading agents...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Agent detail panel -->
+    <div id="agent-detail" class="table-card" style="display:none;">
+      <div class="table-header">
+        <h3 id="agent-detail-title">Agent Detail</h3>
+        <button class="filter-select" onclick="closeAgentDetail()" style="cursor:pointer;">Close</button>
+      </div>
+      <div id="agent-detail-body" style="padding:20px;">
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       TAB: FINANCE
+       ================================================================ -->
+  <div id="tab-finance" class="tab-content">
+    <div class="stats-row" id="finance-stats">
+      <div class="stat-card">
+        <div class="stat-label">Total Rake</div>
+        <div class="stat-value green" id="stat-finance-rake">--</div>
+        <div class="stat-sub">ETH</div>
+      </div>
+      <div class="stat-card accent-blue">
+        <div class="stat-label">Pending Payouts</div>
+        <div class="stat-value blue" id="stat-finance-pending">--</div>
+      </div>
+      <div class="stat-card accent-red">
+        <div class="stat-label">Failed Payouts</div>
+        <div class="stat-value red" id="stat-finance-failed">--</div>
+      </div>
+      <div class="stat-card accent-gold">
+        <div class="stat-label">Wallet Balance</div>
+        <div class="stat-value gold" id="stat-finance-balance">--</div>
+        <div class="stat-sub">ETH</div>
+      </div>
+    </div>
+
+    <div class="charts-grid" style="grid-template-columns: 1fr;">
+      <div class="chart-card">
+        <h3>Daily Revenue (Rake)</h3>
+        <canvas id="chart-finance-revenue"></canvas>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-header">
+        <h3>Payouts</h3>
+        <div class="table-filters">
+          <select id="payout-filter-status" class="filter-select" title="Filter by status">
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="sent">Sent</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="failed">Failed</option>
+          </select>
+          <select id="payout-filter-type" class="filter-select" title="Filter by type">
+            <option value="">All Types</option>
+            <option value="prize">Prize</option>
+            <option value="rake">Rake</option>
+          </select>
+          <input type="date" id="payout-filter-from" class="filter-input" placeholder="From" title="From date">
+          <input type="date" id="payout-filter-to" class="filter-input" placeholder="To" title="To date">
+          <button class="filter-select" onclick="loadPayouts()" style="cursor:pointer;">Apply</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="payouts-table">
+          <thead>
+            <tr>
+              <th data-sort="arena_id">Arena</th>
+              <th data-sort="agent_id">Agent</th>
+              <th data-sort="amount">Amount (ETH)</th>
+              <th data-sort="type">Type</th>
+              <th data-sort="status">Status</th>
+              <th data-sort="tx_hash">Tx Hash</th>
+              <th data-sort="created_at">Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="payouts-tbody">
+            <tr><td colspan="8"><div class="loading-spinner"><div class="spinner"></div> Loading payouts...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       TAB: LIVE
+       ================================================================ -->
+  <div id="tab-live" class="tab-content">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <h2 style="font-size:18px;font-weight:600;">Running Arenas</h2>
+      <div class="topbar-status">
+        <div class="dot"></div>
+        <span>Auto-refresh 5s</span>
+      </div>
+    </div>
+    <div class="live-grid" id="live-arenas-grid">
+      <div class="loading-spinner"><div class="spinner"></div> Loading live arenas...</div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       TAB: SYSTEM
+       ================================================================ -->
+  <div id="tab-system" class="tab-content">
+    <div class="system-grid" id="system-cards">
+      <div class="system-card">
+        <h3>Server Status</h3>
+        <div class="system-value" id="sys-server-status">--</div>
+      </div>
+      <div class="system-card">
+        <h3>Escrow Mode</h3>
+        <div class="system-value" id="sys-escrow-mode">--</div>
+      </div>
+      <div class="system-card">
+        <h3>Wallet Address</h3>
+        <div class="system-value" id="sys-wallet" style="font-size:12px;word-break:break-all;">--</div>
+      </div>
+      <div class="system-card">
+        <h3>Active SSE Connections</h3>
+        <div class="system-value" id="sys-sse-count">--</div>
+      </div>
+      <div class="system-card">
+        <h3>Game Loop Status</h3>
+        <div class="system-value" id="sys-game-loop">--</div>
+      </div>
+      <div class="system-card">
+        <h3>SwarmTrade Integration</h3>
+        <div class="system-value" id="sys-swarmtrade">--</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-header">
+        <h3>Applied Migrations</h3>
+      </div>
+      <div style="padding: 16px 20px;">
+        <ul class="migration-list" id="migration-list">
+          <li><span class="migration-name">Loading...</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Copy toast -->
+<div id="copy-toast" class="copy-toast">Copied to clipboard</div>
+
+<!-- ================================================================
+     JAVASCRIPT
+     ================================================================ -->
+<script>
+/* ===================================================================
+   Helper Functions
+   =================================================================== */
+
+function weiToEth(wei) {
+  try {
+    const val = BigInt(wei || '0');
+    return Number(val * 10000n / BigInt('1000000000000000000')) / 10000;
+  } catch {
+    const num = parseFloat(wei || '0');
+    return Math.round((num / 1e18) * 10000) / 10000;
+  }
+}
+
+function formatEth(wei) {
+  return weiToEth(wei).toFixed(4);
+}
+
+function shortId(id) {
+  return id ? id.slice(0, 8) : '\u2014';
+}
+
+function timeAgo(iso) {
+  if (!iso) return '\u2014';
+  const now = Date.now();
+  const then = new Date(iso).getTime();
+  const diff = Math.max(0, now - then);
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return seconds + 's ago';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return minutes + 'm ago';
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours + 'h ago';
+  const days = Math.floor(hours / 24);
+  if (days < 30) return days + 'd ago';
+  return new Date(iso).toLocaleDateString();
+}
+
+function formatLocalTime(iso) {
+  if (!iso) return '\u2014';
+  return new Date(iso).toLocaleString();
+}
+
+function statusBadge(status) {
+  const map = {
+    open: 'badge-yellow',
+    running: 'badge-blue',
+    complete: 'badge-green',
+    completed: 'badge-green',
+    cancelled: 'badge-red',
+    canceled: 'badge-red',
+    active: 'badge-green',
+    pending: 'badge-yellow',
+    sent: 'badge-yellow',
+    confirmed: 'badge-green',
+    failed: 'badge-red',
+    eliminated: 'badge-red',
+    alive: 'badge-green',
+    winner: 'badge-green'
+  };
+  const cls = map[(status || '').toLowerCase()] || 'badge-dim';
+  return `<span class="badge ${cls}">${escHtml(status || 'unknown')}</span>`;
+}
+
+function phaseBadge(phase) {
+  const map = {
+    alliance: 'badge-blue',
+    discussion: 'badge-blue',
+    voting: 'badge-orange',
+    elimination: 'badge-red',
+    results: 'badge-green',
+    lobby: 'badge-yellow',
+    waiting: 'badge-dim'
+  };
+  const cls = map[(phase || '').toLowerCase()] || 'badge-dim';
+  return `<span class="badge ${cls}">${escHtml(phase || '\u2014')}</span>`;
+}
+
+function typeBadge(type) {
+  const cls = type === 'prize' ? 'badge-gold badge-green' : 'badge-purple';
+  return `<span class="badge ${cls}">${escHtml(type || '\u2014')}</span>`;
+}
+
+function escHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function api(path) {
+  const resp = await fetch(path);
+  if (resp.status === 401) {
+    showLogin();
+    throw new Error('Unauthorized');
+  }
+  if (!resp.ok) {
+    throw new Error(`API ${resp.status}: ${resp.statusText}`);
+  }
+  return resp.json();
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const toast = document.getElementById('copy-toast');
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 1500);
+  });
+}
+
+function durationStr(ms) {
+  if (!ms || ms <= 0) return '\u2014';
+  const secs = Math.floor(ms / 1000);
+  if (secs < 60) return secs + 's';
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return mins + 'm ' + (secs % 60) + 's';
+  const hrs = Math.floor(mins / 60);
+  return hrs + 'h ' + (mins % 60) + 'm';
+}
+
+function countdownStr(targetIso) {
+  if (!targetIso) return '--:--';
+  const remaining = new Date(targetIso).getTime() - Date.now();
+  if (remaining <= 0) return '0:00';
+  const mins = Math.floor(remaining / 60000);
+  const secs = Math.floor((remaining % 60000) / 1000);
+  return mins + ':' + String(secs).padStart(2, '0');
+}
+
+/* ===================================================================
+   Auth
+   =================================================================== */
+
+function showLogin() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('dashboard').classList.remove('active');
+}
+
+function showDashboard() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard').classList.add('active');
+  initDashboard();
+}
+
+async function checkSession() {
+  try {
+    const resp = await fetch('/admin/session');
+    if (resp.ok) {
+      showDashboard();
+    } else {
+      showLogin();
+    }
+  } catch {
+    showLogin();
+  }
+}
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const key = document.getElementById('login-key').value.trim();
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  if (!key) return;
+
+  try {
+    const resp = await fetch('/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key })
+    });
+    if (resp.ok) {
+      showDashboard();
+    } else {
+      errEl.style.display = 'block';
+      document.getElementById('login-key').value = '';
+      document.getElementById('login-key').focus();
+    }
+  } catch {
+    errEl.textContent = 'Connection error. Is the server running?';
+    errEl.style.display = 'block';
+  }
+});
+
+async function logout() {
+  try { await fetch('/admin/logout', { method: 'POST' }); } catch {}
+  showLogin();
+  document.getElementById('login-key').value = '';
+}
+
+/* ===================================================================
+   Tab Navigation
+   =================================================================== */
+
+const tabBtns = document.querySelectorAll('.tab-btn');
+const tabContents = document.querySelectorAll('.tab-content');
+let activeTab = 'overview';
+
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    if (tab === activeTab) return;
+
+    tabBtns.forEach(b => b.classList.remove('active'));
+    tabContents.forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+    activeTab = tab;
+
+    onTabActivated(tab);
+  });
+});
+
+function onTabActivated(tab) {
+  switch (tab) {
+    case 'overview': loadOverview(); break;
+    case 'arenas': loadArenas(); break;
+    case 'agents': loadAgents(); break;
+    case 'finance': loadFinance(); break;
+    case 'live': loadLive(); break;
+    case 'system': loadSystem(); break;
+  }
+}
+
+/* ===================================================================
+   Chart.js defaults
+   =================================================================== */
+
+Chart.defaults.color = '#666';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.05)';
+Chart.defaults.font.family = "system-ui, -apple-system, sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.plugins.legend.labels.boxWidth = 12;
+Chart.defaults.plugins.legend.labels.padding = 16;
+
+/* Store chart instances for cleanup */
+const charts = {};
+
+function destroyChart(key) {
+  if (charts[key]) {
+    charts[key].destroy();
+    delete charts[key];
+  }
+}
+
+/* ===================================================================
+   OVERVIEW TAB
+   =================================================================== */
+
+let overviewInterval = null;
+
+async function loadOverview() {
+  try {
+    const [stats, walletData, runningData, recentData, revenueData] = await Promise.all([
+      api('/admin/stats'),
+      api('/admin/wallet/balance').catch(() => ({ balance: null })),
+      api('/arenas?status=running&limit=10').catch(() => ({ arenas: [] })),
+      api('/arenas?status=complete&limit=5').catch(() => ({ arenas: [] })),
+      api('/admin/stats/revenue').catch(() => ({ revenue: [] })),
+    ]);
+    renderOverviewStats(stats, walletData);
+    renderOverviewCharts(stats, revenueData);
+    renderOverviewFeed(runningData, recentData);
+  } catch (err) {
+    console.error('Overview load error:', err);
+  }
+
+  clearInterval(overviewInterval);
+  overviewInterval = setInterval(async () => {
+    if (activeTab !== 'overview') { clearInterval(overviewInterval); return; }
+    try {
+      const [stats, runningData, recentData] = await Promise.all([
+        api('/admin/stats'),
+        api('/arenas?status=running&limit=10').catch(() => ({ arenas: [] })),
+        api('/arenas?status=complete&limit=5').catch(() => ({ arenas: [] })),
+      ]);
+      renderOverviewStats(stats);
+      renderOverviewFeed(runningData, recentData);
+    } catch {}
+  }, 30000);
+}
+
+function renderOverviewStats(stats, walletData) {
+  const a = stats.arenas ?? {};
+  const ag = stats.agents ?? {};
+  const r = stats.rake ?? {};
+  setText('stat-total-arenas', a.total_arenas ?? 0);
+  setText('stat-active-now', a.active_arenas ?? 0);
+  setText('stat-unique-agents', ag.unique_agents ?? 0);
+  setText('stat-prize-pool', formatEth(a.total_prize_distributed ?? '0'));
+  setText('stat-rake-collected', formatEth(r.total_rake ?? '0'));
+  if (walletData && walletData.balance != null) {
+    setText('stat-wallet-balance', formatEth(walletData.balance));
+  } else {
+    setText('stat-wallet-balance', '--');
+  }
+}
+
+function renderOverviewCharts(stats, revenueData) {
+  // Arena creation rate — last 30 days
+  const creationData = stats.creation_by_day ?? [];
+  destroyChart('arenaCreation');
+  const ctxCreation = document.getElementById('chart-arena-creation').getContext('2d');
+  charts.arenaCreation = new Chart(ctxCreation, {
+    type: 'bar',
+    data: {
+      labels: creationData.map(d => {
+        const dt = new Date(d.day ?? d.date);
+        return (dt.getMonth()+1) + '/' + dt.getDate();
+      }),
+      datasets: [{
+        label: 'Arenas Created',
+        data: creationData.map(d => d.count ?? 0),
+        backgroundColor: 'rgba(0,255,136,0.4)',
+        borderColor: '#00ff88',
+        borderWidth: 1,
+        borderRadius: 3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+      }
+    }
+  });
+
+  // Revenue over time
+  const revRows = revenueData?.revenue ?? [];
+  destroyChart('revenue');
+  const ctxRevenue = document.getElementById('chart-revenue').getContext('2d');
+  charts.revenue = new Chart(ctxRevenue, {
+    type: 'line',
+    data: {
+      labels: revRows.map(d => {
+        const dt = new Date(d.day ?? d.date);
+        return (dt.getMonth()+1) + '/' + dt.getDate();
+      }),
+      datasets: [{
+        label: 'Rake (ETH)',
+        data: revRows.map(d => weiToEth(d.rake_wei ?? d.amount ?? '0')),
+        borderColor: '#ffd700',
+        backgroundColor: 'rgba(255,215,0,0.1)',
+        tension: 0.3,
+        fill: true,
+        pointRadius: 2,
+        pointHoverRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+
+  // Arena status breakdown — API returns array [{status, count}], convert to object
+  const statusArr = stats.status_distribution ?? [];
+  const statusObj = {};
+  statusArr.forEach(s => { statusObj[s.status] = s.count; });
+  destroyChart('statusBreakdown');
+  const ctxStatus = document.getElementById('chart-status-breakdown').getContext('2d');
+  const statusLabels = Object.keys(statusObj);
+  const statusValues = Object.values(statusObj);
+  const statusColors = statusLabels.map(s => {
+    const m = { open: '#ffcc00', running: '#4488ff', complete: '#00ff88', completed: '#00ff88', cancelled: '#ff4444', canceled: '#ff4444' };
+    return m[s.toLowerCase()] || '#666';
+  });
+  charts.statusBreakdown = new Chart(ctxStatus, {
+    type: 'doughnut',
+    data: {
+      labels: statusLabels.map(s => s.charAt(0).toUpperCase() + s.slice(1)),
+      datasets: [{
+        data: statusValues,
+        backgroundColor: statusColors,
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: '60%',
+      plugins: {
+        legend: { position: 'right' }
+      }
+    }
+  });
+
+  // Player count distribution
+  const playerDist = stats.player_distribution ?? [];
+  destroyChart('playerDist');
+  const ctxPlayers = document.getElementById('chart-player-dist').getContext('2d');
+  charts.playerDist = new Chart(ctxPlayers, {
+    type: 'bar',
+    data: {
+      labels: playerDist.map(d => d.max_players ?? d.bucket ?? ''),
+      datasets: [{
+        label: 'Arenas',
+        data: playerDist.map(d => d.count ?? 0),
+        backgroundColor: 'rgba(68,136,255,0.4)',
+        borderColor: '#4488ff',
+        borderWidth: 1,
+        borderRadius: 3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1 } },
+        x: { title: { display: true, text: 'Max Players', color: '#666' } }
+      }
+    }
+  });
+}
+
+function renderOverviewFeed(runningData, recentData) {
+  const feedEl = document.getElementById('overview-feed-list');
+  const running = runningData?.arenas ?? (Array.isArray(runningData) ? runningData : []);
+  const recent = recentData?.arenas ?? (Array.isArray(recentData) ? recentData : []);
+
+  if (running.length === 0 && recent.length === 0) {
+    feedEl.innerHTML = '<div class="empty-state">No active arenas or recent completions</div>';
+    return;
+  }
+
+  let html = '';
+
+  running.forEach(a => {
+    const id = shortId(a.id ?? a.arena_id);
+    const phase = a.phase ?? a.current_phase ?? '';
+    const round = a.current_round ?? a.round ?? '';
+    html += `
+      <div class="live-feed-item">
+        <span class="live-feed-time">${timeAgo(a.updated_at ?? a.started_at ?? a.created_at)}</span>
+        <span class="copyable" onclick="copyToClipboard('${escHtml(a.id ?? a.arena_id ?? '')}')">${id}</span>
+        ${phaseBadge(phase)}
+        <span style="color:var(--text-dim);">Round ${round}</span>
+        <span style="color:var(--text-dim);margin-left:auto;">${a.player_count ?? a.players ?? '?'} players</span>
+      </div>`;
+  });
+
+  recent.forEach(a => {
+    const id = shortId(a.id ?? a.arena_id);
+    html += `
+      <div class="live-feed-item">
+        <span class="live-feed-time">${timeAgo(a.completed_at ?? a.ended_at ?? a.updated_at)}</span>
+        <span class="copyable" onclick="copyToClipboard('${escHtml(a.id ?? a.arena_id ?? '')}')">${id}</span>
+        ${statusBadge('complete')}
+        <span style="color:var(--text-dim);">Winner: ${escHtml(a.winner ?? a.winner_name ?? '\u2014')}</span>
+      </div>`;
+  });
+
+  feedEl.innerHTML = html;
+}
+
+/* ===================================================================
+   ARENAS TAB
+   =================================================================== */
+
+let arenasData = [];
+let arenasSort = { key: 'created_at', dir: 'desc' };
+
+async function loadArenas() {
+  try {
+    const data = await api('/arenas?limit=100');
+    arenasData = Array.isArray(data) ? data : (data.arenas ?? data.data ?? []);
+    renderArenasTable();
+  } catch (err) {
+    console.error('Arenas load error:', err);
+  }
+}
+
+function renderArenasTable() {
+  const tbody = document.getElementById('arenas-tbody');
+  let filtered = [...arenasData];
+
+  // Apply filters
+  const statusFilter = document.getElementById('arena-filter-status');
+  const selectedStatuses = Array.from(statusFilter.selectedOptions).map(o => o.value).filter(Boolean);
+  if (selectedStatuses.length > 0) {
+    filtered = filtered.filter(a => selectedStatuses.includes((a.status || '').toLowerCase()));
+  }
+
+  const fromDate = document.getElementById('arena-filter-from').value;
+  const toDate = document.getElementById('arena-filter-to').value;
+  if (fromDate) {
+    const from = new Date(fromDate).getTime();
+    filtered = filtered.filter(a => new Date(a.created_at).getTime() >= from);
+  }
+  if (toDate) {
+    const to = new Date(toDate).getTime() + 86400000;
+    filtered = filtered.filter(a => new Date(a.created_at).getTime() < to);
+  }
+
+  // Sort
+  filtered.sort((a, b) => {
+    let va = a[arenasSort.key] ?? '';
+    let vb = b[arenasSort.key] ?? '';
+    if (typeof va === 'string' && typeof vb === 'string') {
+      return arenasSort.dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    }
+    va = Number(va) || 0;
+    vb = Number(vb) || 0;
+    return arenasSort.dir === 'asc' ? va - vb : vb - va;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12"><div class="empty-state">No arenas match filters</div></td></tr>';
+    return;
+  }
+
+  let html = '';
+  filtered.forEach(a => {
+    const id = a.id ?? '';
+    const duration = a.completed_at && a.started_at ?
+      new Date(a.completed_at).getTime() - new Date(a.started_at).getTime() : 0;
+    const rakePct = a.rake_bps != null ? (a.rake_bps / 100) : '\u2014';
+    html += `
+      <tr class="clickable" onclick="toggleArenaDetail(this, '${escHtml(id)}')">
+        <td><span class="copyable" onclick="event.stopPropagation();copyToClipboard('${escHtml(id)}')">${shortId(id)}</span></td>
+        <td>${statusBadge(a.status)}</td>
+        <td>${a.max_players ?? '\u2014'}</td>
+        <td>${formatEth(a.entry_fee_wei ?? '0')}</td>
+        <td>${formatEth(a.prize_pool_wei ?? '0')}</td>
+        <td>${rakePct}%</td>
+        <td>${escHtml(a.chain_id === '8453' ? 'Base' : (a.chain_id ?? 'base'))}</td>
+        <td>${a.current_round ?? '\u2014'}</td>
+        <td>${phaseBadge(a.current_phase ?? '')}</td>
+        <td title="${formatLocalTime(a.created_at)}">${timeAgo(a.created_at)}</td>
+        <td>${durationStr(duration)}</td>
+        <td>${escHtml(a.winner_id ? shortId(a.winner_id) : '\u2014')}</td>
+      </tr>
+      <tr class="detail-panel" id="detail-${escHtml(id)}"><td colspan="12"><div class="loading-spinner"><div class="spinner"></div> Loading details...</div></td></tr>`;
+  });
+
+  tbody.innerHTML = html;
+
+  // Update sort indicators
+  document.querySelectorAll('#arenas-table thead th').forEach(th => {
+    th.classList.remove('sorted-asc', 'sorted-desc');
+    if (th.dataset.sort === arenasSort.key) {
+      th.classList.add(arenasSort.dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+    }
+  });
+}
+
+// Table header sort for arenas
+document.querySelector('#arenas-table thead').addEventListener('click', (e) => {
+  const th = e.target.closest('th');
+  if (!th || !th.dataset.sort) return;
+  if (arenasSort.key === th.dataset.sort) {
+    arenasSort.dir = arenasSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    arenasSort.key = th.dataset.sort;
+    arenasSort.dir = 'desc';
+  }
+  renderArenasTable();
+});
+
+async function toggleArenaDetail(row, arenaId) {
+  const detailRow = document.getElementById('detail-' + arenaId);
+  if (!detailRow) return;
+
+  if (detailRow.classList.contains('open')) {
+    detailRow.classList.remove('open');
+    return;
+  }
+
+  // Close any other open detail panels
+  document.querySelectorAll('.detail-panel.open').forEach(el => el.classList.remove('open'));
+  detailRow.classList.add('open');
+
+  try {
+    const detail = await api(`/admin/arenas/${arenaId}/detail`);
+    renderArenaDetail(detailRow, detail);
+  } catch (err) {
+    detailRow.querySelector('td').innerHTML = `<div class="empty-state" style="color:var(--red);">Failed to load details: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderArenaDetail(row, detail) {
+  const players = detail.players ?? detail.participants ?? [];
+  const rounds = detail.rounds ?? detail.round_timeline ?? [];
+  const payouts = detail.payouts ?? [];
+
+  let playersHtml = '';
+  players.forEach(p => {
+    playersHtml += `<tr>
+      <td><span class="copyable" onclick="copyToClipboard('${escHtml(p.agent_id ?? p.id ?? '')}')">${shortId(p.agent_id ?? p.id)}</span></td>
+      <td>${escHtml(p.display_name ?? p.name ?? '\u2014')}</td>
+      <td>${statusBadge(p.status)}</td>
+      <td>${p.eliminated_round ?? p.eliminatedRound ?? '\u2014'}</td>
+      <td>${p.vote_count ?? p.votes ?? p.votes_received ?? 0}</td>
+    </tr>`;
+  });
+
+  let roundsHtml = '';
+  rounds.forEach(r => {
+    const voteCount = r.vote_detail ? Object.keys(r.vote_detail).length : 0;
+    roundsHtml += `<tr>
+      <td>Round ${r.round ?? '\u2014'}</td>
+      <td>${r.message_count ?? 0} msgs</td>
+      <td>${voteCount} votes</td>
+      <td>${escHtml(r.eliminated_name ?? r.eliminated ?? '\u2014')}</td>
+    </tr>`;
+  });
+
+  let payoutsHtml = '';
+  payouts.forEach(p => {
+    payoutsHtml += `<tr>
+      <td>${shortId(p.agent_id ?? '')}</td>
+      <td>${formatEth(p.amount_wei ?? '0')} ETH</td>
+      <td>${statusBadge(p.status)}</td>
+    </tr>`;
+  });
+
+  row.querySelector('td').innerHTML = `
+    <div class="detail-inner">
+      <div class="detail-section">
+        <h4>Players</h4>
+        <table>
+          <thead><tr><th>Agent</th><th>Name</th><th>Status</th><th>Elim Round</th><th>Votes</th></tr></thead>
+          <tbody>${playersHtml || '<tr><td colspan="5" style="color:var(--text-dim);">No player data</td></tr>'}</tbody>
+        </table>
+      </div>
+      <div class="detail-section">
+        <h4>Round Timeline</h4>
+        <table>
+          <thead><tr><th>Round</th><th>Messages</th><th>Votes</th><th>Eliminated</th></tr></thead>
+          <tbody>${roundsHtml || '<tr><td colspan="4" style="color:var(--text-dim);">No round data</td></tr>'}</tbody>
+        </table>
+        ${payouts.length > 0 ? `
+        <h4 style="margin-top:16px;">Payouts</h4>
+        <table>
+          <thead><tr><th>Agent</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody>${payoutsHtml}</tbody>
+        </table>` : ''}
+      </div>
+    </div>`;
+}
+
+/* ===================================================================
+   AGENTS TAB
+   =================================================================== */
+
+let agentsData = [];
+let agentsSort = { key: 'wins', dir: 'desc' };
+
+async function loadAgents() {
+  try {
+    const data = await api('/admin/stats/agents');
+    agentsData = Array.isArray(data) ? data : (data.agents ?? data.data ?? []);
+    renderAgentsTable();
+  } catch (err) {
+    console.error('Agents load error:', err);
+  }
+}
+
+function renderAgentsTable() {
+  const tbody = document.getElementById('agents-tbody');
+  let sorted = [...agentsData];
+
+  sorted.sort((a, b) => {
+    let va = a[agentsSort.key] ?? '';
+    let vb = b[agentsSort.key] ?? '';
+    if (typeof va === 'string' && typeof vb === 'string') {
+      return agentsSort.dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    }
+    va = Number(va) || 0;
+    vb = Number(vb) || 0;
+    return agentsSort.dir === 'asc' ? va - vb : vb - va;
+  });
+
+  if (sorted.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state">No agent data available</div></td></tr>';
+    return;
+  }
+
+  let html = '';
+  sorted.forEach((a, i) => {
+    const id = a.agent_id ?? a.id ?? '';
+    const winRate = a.win_rate ?? a.winRate ??
+      (a.arenas_played ? Math.round((a.wins / a.arenas_played) * 100) : 0);
+    const names = Array.isArray(a.names) ? a.names.join(', ') :
+      (a.names_used ?? a.namesUsed ?? a.display_name ?? '\u2014');
+    html += `
+      <tr class="clickable" onclick="showAgentDetail('${escHtml(id)}')">
+        <td style="color:var(--text-dim);">${i + 1}</td>
+        <td><span class="copyable" onclick="event.stopPropagation();copyToClipboard('${escHtml(id)}')">${shortId(id)}</span></td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">${escHtml(typeof names === 'string' ? names : String(names))}</td>
+        <td>${a.arenas_played ?? a.arenasPlayed ?? 0}</td>
+        <td style="color:var(--green);font-weight:600;">${a.wins ?? 0}</td>
+        <td>${winRate}%</td>
+        <td>${(a.avg_survival ?? a.avgSurvival ?? a.avg_survival_round ?? 0).toFixed(1)}</td>
+        <td>${a.total_messages ?? a.totalMessages ?? 0}</td>
+        <td style="color:var(--gold);">${a.score ?? a.swarmtrade_score ?? a.swarmtradeScore ?? '\u2014'}</td>
+      </tr>`;
+  });
+
+  tbody.innerHTML = html;
+
+  document.querySelectorAll('#agents-table thead th').forEach(th => {
+    th.classList.remove('sorted-asc', 'sorted-desc');
+    if (th.dataset.sort === agentsSort.key) {
+      th.classList.add(agentsSort.dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+    }
+  });
+}
+
+document.querySelector('#agents-table thead').addEventListener('click', (e) => {
+  const th = e.target.closest('th');
+  if (!th || !th.dataset.sort) return;
+  if (agentsSort.key === th.dataset.sort) {
+    agentsSort.dir = agentsSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    agentsSort.key = th.dataset.sort;
+    agentsSort.dir = 'desc';
+  }
+  renderAgentsTable();
+});
+
+async function showAgentDetail(agentId) {
+  const panel = document.getElementById('agent-detail');
+  const title = document.getElementById('agent-detail-title');
+  const body = document.getElementById('agent-detail-body');
+
+  panel.style.display = 'block';
+  title.textContent = 'Agent: ' + shortId(agentId);
+  body.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Loading agent details...</div>';
+
+  // Scroll to detail
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  try {
+    const data = await api(`/admin/agents/${agentId}`);
+    renderAgentDetail(body, data);
+  } catch (err) {
+    body.innerHTML = `<div class="empty-state" style="color:var(--red);">Failed to load agent details: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderAgentDetail(container, data) {
+  // API returns: { agent: {...}, history: [...], messaging: {...}, vote_targets, voted_by }
+  const agentInfo = data.agent ?? {};
+  const history = data.history ?? [];
+  const messaging = data.messaging ?? {};
+
+  let arenasHtml = '';
+  history.forEach(a => {
+    arenasHtml += `<tr>
+      <td><span class="copyable" onclick="copyToClipboard('${escHtml(a.arena_id ?? '')}')">${shortId(a.arena_id)}</span></td>
+      <td>${statusBadge(a.status ?? '')}</td>
+      <td>${a.eliminated_round ?? '\u2014'}</td>
+      <td>\u2014</td>
+      <td>${a.vote_count ?? 0}</td>
+      <td title="${formatLocalTime(a.joined_at)}">${timeAgo(a.joined_at)}</td>
+    </tr>`;
+  });
+
+  container.innerHTML = `
+    <div class="stats-row" style="margin-bottom:20px;">
+      <div class="stat-card">
+        <div class="stat-label">Full Agent ID</div>
+        <div style="font-family:var(--font-mono);font-size:11px;word-break:break-all;color:var(--text-dim);cursor:pointer;" onclick="copyToClipboard('${escHtml(agentInfo.agent_id ?? '')}')">${escHtml(agentInfo.agent_id ?? '\u2014')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Arenas</div>
+        <div class="stat-value">${agentInfo.arenas_played ?? history.length}</div>
+      </div>
+      <div class="stat-card accent-blue">
+        <div class="stat-label">Wins / Losses</div>
+        <div class="stat-value"><span style="color:var(--green);">${agentInfo.wins ?? 0}</span> / <span style="color:var(--red);">${agentInfo.losses ?? ((agentInfo.arenas_played ?? history.length) - (agentInfo.wins ?? 0))}</span></div>
+      </div>
+      <div class="stat-card accent-purple">
+        <div class="stat-label">Total Messages</div>
+        <div class="stat-value">${messaging.total_messages ?? 0}</div>
+      </div>
+    </div>
+    <div class="table-card" style="margin-bottom:0;">
+      <div class="table-header"><h3>Arena History</h3></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Arena</th><th>Result</th><th>Elim Round</th><th>Messages</th><th>Votes Recv</th><th>Date</th></tr></thead>
+          <tbody>${arenasHtml || '<tr><td colspan="6" style="color:var(--text-dim);">No arena history</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function closeAgentDetail() {
+  document.getElementById('agent-detail').style.display = 'none';
+}
+
+/* ===================================================================
+   FINANCE TAB
+   =================================================================== */
+
+let payoutsData = [];
+let payoutsSort = { key: 'created_at', dir: 'desc' };
+
+async function loadFinance() {
+  try {
+    const [payoutsResp, revenueResp, walletResp] = await Promise.all([
+      api('/admin/payouts'),
+      api('/admin/stats/revenue'),
+      api('/admin/wallet/balance').catch(() => ({ balance: null })),
+    ]);
+
+    payoutsData = payoutsResp.payouts ?? (Array.isArray(payoutsResp) ? payoutsResp : []);
+    const revenueRows = revenueResp.revenue ?? [];
+
+    renderFinanceStats(payoutsData, revenueRows, walletResp);
+    renderFinanceChart(revenueRows);
+    renderPayoutsTable();
+  } catch (err) {
+    console.error('Finance load error:', err);
+  }
+}
+
+function renderFinanceStats(payouts, revenueRows, walletData) {
+  // Sum total rake from revenue time series
+  let totalRakeWei = 0n;
+  try {
+    for (const r of revenueRows) totalRakeWei += BigInt(r.rake_wei || '0');
+  } catch { /* fallback: leave at 0 */ }
+
+  const pendingCount = payouts.filter(p => (p.status || '').toLowerCase() === 'pending').length;
+  const failedCount = payouts.filter(p => (p.status || '').toLowerCase() === 'failed').length;
+
+  setText('stat-finance-rake', formatEth(totalRakeWei.toString()));
+  setText('stat-finance-pending', pendingCount);
+  setText('stat-finance-failed', failedCount);
+  if (walletData && walletData.balance != null) {
+    setText('stat-finance-balance', formatEth(walletData.balance));
+  } else {
+    setText('stat-finance-balance', '--');
+  }
+
+  // Highlight failed count if > 0
+  const failedEl = document.getElementById('stat-finance-failed');
+  if (failedCount > 0) {
+    failedEl.classList.add('red');
+  } else {
+    failedEl.classList.remove('red');
+  }
+}
+
+function renderFinanceChart(revenueRows) {
+  destroyChart('financeRevenue');
+  const ctx = document.getElementById('chart-finance-revenue').getContext('2d');
+  charts.financeRevenue = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: revenueRows.map(d => {
+        const dt = new Date(d.day ?? d.date);
+        return (dt.getMonth()+1) + '/' + dt.getDate();
+      }),
+      datasets: [{
+        label: 'Rake (ETH)',
+        data: revenueRows.map(d => weiToEth(d.rake_wei ?? '0')),
+        borderColor: '#00ff88',
+        backgroundColor: 'rgba(0,255,136,0.08)',
+        tension: 0.3,
+        fill: true,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        pointBackgroundColor: '#00ff88'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, title: { display: true, text: 'ETH', color: '#666' } }
+      }
+    }
+  });
+}
+
+function renderPayoutsTable() {
+  const tbody = document.getElementById('payouts-tbody');
+  let filtered = [...payoutsData];
+
+  // Apply filters
+  const statusVal = document.getElementById('payout-filter-status').value;
+  if (statusVal) {
+    filtered = filtered.filter(p => (p.status || '').toLowerCase() === statusVal);
+  }
+
+  const typeVal = document.getElementById('payout-filter-type').value;
+  if (typeVal) {
+    filtered = filtered.filter(p => (p.type || '').toLowerCase() === typeVal);
+  }
+
+  const fromDate = document.getElementById('payout-filter-from').value;
+  const toDate = document.getElementById('payout-filter-to').value;
+  if (fromDate) {
+    const from = new Date(fromDate).getTime();
+    filtered = filtered.filter(p => new Date(p.created_at).getTime() >= from);
+  }
+  if (toDate) {
+    const to = new Date(toDate).getTime() + 86400000;
+    filtered = filtered.filter(p => new Date(p.created_at).getTime() < to);
+  }
+
+  // Sort
+  filtered.sort((a, b) => {
+    let va = a[payoutsSort.key] ?? '';
+    let vb = b[payoutsSort.key] ?? '';
+    if (typeof va === 'string' && typeof vb === 'string') {
+      return payoutsSort.dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    }
+    va = Number(va) || 0;
+    vb = Number(vb) || 0;
+    return payoutsSort.dir === 'asc' ? va - vb : vb - va;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">No payouts match filters</div></td></tr>';
+    return;
+  }
+
+  let html = '';
+  filtered.forEach(p => {
+    const id = p.id ?? p.payout_id ?? '';
+    const arenaId = p.arena_id ?? p.arena ?? '';
+    const agentId = p.agent_id ?? p.agent ?? '';
+    const txHash = p.tx_hash ?? p.txHash ?? '';
+    const isFailed = (p.status || '').toLowerCase() === 'failed';
+
+    let txLink = '\u2014';
+    if (txHash) {
+      txLink = `<a href="https://basescan.org/tx/${escHtml(txHash)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-family:var(--font-mono);font-size:11px;">${txHash.slice(0, 10)}...</a>`;
+    }
+
+    html += `<tr>
+      <td><span class="copyable" onclick="copyToClipboard('${escHtml(arenaId)}')">${shortId(arenaId)}</span></td>
+      <td><span class="copyable" onclick="copyToClipboard('${escHtml(agentId)}')">${shortId(agentId)}</span></td>
+      <td style="font-family:var(--font-mono);">${formatEth(p.amount_wei ?? '0')}</td>
+      <td>${typeBadge(p.type)}</td>
+      <td>${statusBadge(p.status)}</td>
+      <td>${txLink}</td>
+      <td title="${formatLocalTime(p.created_at)}">${timeAgo(p.created_at)}</td>
+      <td>${isFailed ? `<button class="btn-retry" onclick="retryPayout('${escHtml(id)}', this)">Retry</button>` : ''}</td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = html;
+
+  document.querySelectorAll('#payouts-table thead th').forEach(th => {
+    th.classList.remove('sorted-asc', 'sorted-desc');
+    if (th.dataset.sort === payoutsSort.key) {
+      th.classList.add(payoutsSort.dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+    }
+  });
+}
+
+document.querySelector('#payouts-table thead').addEventListener('click', (e) => {
+  const th = e.target.closest('th');
+  if (!th || !th.dataset.sort) return;
+  if (payoutsSort.key === th.dataset.sort) {
+    payoutsSort.dir = payoutsSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    payoutsSort.key = th.dataset.sort;
+    payoutsSort.dir = 'desc';
+  }
+  renderPayoutsTable();
+});
+
+async function retryPayout(payoutId, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Retrying...';
+
+  try {
+    const resp = await fetch(`/admin/payouts/${payoutId}/retry`, { method: 'POST' });
+    if (resp.ok) {
+      btn.textContent = 'Sent';
+      btn.style.borderColor = 'rgba(0,255,136,0.3)';
+      btn.style.color = 'var(--green)';
+      btn.style.background = 'rgba(0,255,136,0.12)';
+      setTimeout(() => loadFinance(), 2000);
+    } else {
+      btn.textContent = 'Failed';
+      btn.disabled = false;
+    }
+  } catch {
+    btn.textContent = 'Error';
+    btn.disabled = false;
+  }
+}
+
+/* ===================================================================
+   LIVE TAB
+   =================================================================== */
+
+let liveInterval = null;
+let liveCountdownInterval = null;
+let liveArenas = [];
+
+async function loadLive() {
+  try {
+    const data = await api('/arenas?status=running');
+    liveArenas = Array.isArray(data) ? data : (data.arenas ?? data.data ?? []);
+    renderLiveGrid();
+  } catch (err) {
+    console.error('Live load error:', err);
+  }
+
+  // Auto-refresh every 5 seconds
+  clearInterval(liveInterval);
+  liveInterval = setInterval(async () => {
+    if (activeTab !== 'live') { clearInterval(liveInterval); clearInterval(liveCountdownInterval); return; }
+    try {
+      const data = await api('/arenas?status=running');
+      liveArenas = Array.isArray(data) ? data : (data.arenas ?? data.data ?? []);
+      renderLiveGrid();
+    } catch {}
+  }, 5000);
+
+  // Countdown ticker every second
+  clearInterval(liveCountdownInterval);
+  liveCountdownInterval = setInterval(() => {
+    if (activeTab !== 'live') { clearInterval(liveCountdownInterval); return; }
+    document.querySelectorAll('[data-countdown]').forEach(el => {
+      el.textContent = countdownStr(el.dataset.countdown);
+    });
+  }, 1000);
+}
+
+function renderLiveGrid() {
+  const grid = document.getElementById('live-arenas-grid');
+
+  if (liveArenas.length === 0) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">No arenas currently running</div>';
+    return;
+  }
+
+  let html = '';
+  liveArenas.forEach(a => {
+    const id = a.id ?? '';
+    const phase = a.current_phase ?? '';
+    const phaseEnd = a.phase_ends_at ?? '';
+
+    html += `
+      <div class="live-card" onclick="window.open('/arena.html?id=${escHtml(id)}', '_blank')">
+        <div class="live-card-header">
+          <span class="live-card-id">${shortId(id)}</span>
+          ${phaseBadge(phase)}
+        </div>
+        <div class="live-card-body">
+          <div class="live-card-stat">
+            <label>Max Players</label>
+            <value>${a.max_players ?? '?'}</value>
+          </div>
+          <div class="live-card-stat">
+            <label>Round</label>
+            <value>${a.current_round ?? '\u2014'}</value>
+          </div>
+          <div class="live-card-stat">
+            <label>Entry Fee</label>
+            <value>${formatEth(a.entry_fee_wei ?? '0')} ETH</value>
+          </div>
+          <div class="live-card-stat">
+            <label>Prize Pool</label>
+            <value>${formatEth(a.prize_pool_wei ?? '0')} ETH</value>
+          </div>
+        </div>
+        <div class="live-card-countdown" data-countdown="${escHtml(phaseEnd)}">
+          ${countdownStr(phaseEnd)}
+        </div>
+      </div>`;
+  });
+
+  grid.innerHTML = html;
+}
+
+/* ===================================================================
+   SYSTEM TAB
+   =================================================================== */
+
+async function loadSystem() {
+  try {
+    const data = await api('/admin/system');
+    renderSystem(data);
+  } catch (err) {
+    console.error('System load error:', err);
+  }
+}
+
+function renderSystem(data) {
+  // Server status — API returns { server: { uptime_s, node_version, env }, ... }
+  const server = data.server ?? {};
+  const serverEl = document.getElementById('sys-server-status');
+  const serverOk = server.uptime_s > 0;
+  const uptimeStr = server.uptime_s ? durationStr(server.uptime_s * 1000) : '';
+  serverEl.textContent = serverOk ? ('Healthy \u2014 up ' + uptimeStr) : 'Unknown';
+  serverEl.className = 'system-value ' + (serverOk ? 'ok' : 'error');
+
+  // Escrow — API returns { escrow: { enabled, wallet } }
+  const escrowData = data.escrow ?? {};
+  const escrowEl = document.getElementById('sys-escrow-mode');
+  escrowEl.textContent = escrowData.enabled ? 'Enabled (Live)' : 'Mock Mode';
+  escrowEl.className = 'system-value ' + (escrowData.enabled ? 'ok' : '');
+
+  // Wallet
+  const walletEl = document.getElementById('sys-wallet');
+  const wallet = escrowData.wallet ?? '\u2014';
+  walletEl.textContent = wallet;
+  if (wallet !== '\u2014') {
+    walletEl.style.cursor = 'pointer';
+    walletEl.onclick = () => copyToClipboard(wallet);
+  }
+
+  // SSE connections
+  setText('sys-sse-count', data.sse_connections ?? 0);
+
+  // Game loop — API returns { game_loop: { tick_interval_s, running_arenas } }
+  const gameLoop = data.game_loop ?? {};
+  const gameLoopEl = document.getElementById('sys-game-loop');
+  const loopOk = gameLoop.tick_interval_s > 0;
+  gameLoopEl.textContent = loopOk ? ('Running \u2014 ' + (gameLoop.running_arenas ?? 0) + ' active') : 'Unknown';
+  gameLoopEl.className = 'system-value ' + (loopOk ? 'ok' : 'error');
+
+  // SwarmTrade — API returns { swarmtrade: { status, base_url } }
+  const st = data.swarmtrade ?? {};
+  const stEl = document.getElementById('sys-swarmtrade');
+  const stOk = st.status === 'reachable';
+  stEl.textContent = stOk ? 'Connected' : (st.status ?? 'Not configured');
+  stEl.className = 'system-value ' + (stOk ? 'ok' : '');
+
+  // Migrations
+  const migrations = data.migrations ?? [];
+  const migList = document.getElementById('migration-list');
+
+  if (migrations.length === 0) {
+    migList.innerHTML = '<li><span class="migration-name" style="color:var(--text-dim);">No migration data available</span></li>';
+  } else {
+    let html = '';
+    migrations.forEach(m => {
+      html += `<li>
+        <span style="color:var(--green);">&#10003;</span>
+        <span class="migration-name">${escHtml(m.name ?? 'unknown')}</span>
+        <span class="migration-time">${m.applied_at ? formatLocalTime(m.applied_at) : ''}</span>
+      </li>`;
+    });
+    migList.innerHTML = html;
+  }
+}
+
+/* ===================================================================
+   Utility
+   =================================================================== */
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+/* ===================================================================
+   Initialize Dashboard
+   =================================================================== */
+
+let dashboardInitialized = false;
+
+function initDashboard() {
+  if (dashboardInitialized) return;
+  dashboardInitialized = true;
+  loadOverview();
+}
+
+/* ===================================================================
+   Boot
+   =================================================================== */
+
+document.addEventListener('DOMContentLoaded', () => {
+  checkSession();
+});
+</script>
+</body>
+</html>

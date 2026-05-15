@@ -591,3 +591,500 @@ describe("Spectator", () => {
     expect(body.rounds[0].round).toBe(1);
   });
 });
+
+// ===========================================================================
+// Admin Dashboard
+// ===========================================================================
+
+describe("Admin Dashboard Auth", () => {
+  it("POST /admin/login sets session cookie", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/admin/login",
+      payload: { key: ADMIN_KEY },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.payload).success).toBe(true);
+    expect(res.headers["set-cookie"]).toBeTruthy();
+  });
+
+  it("POST /admin/login rejects bad key", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/admin/login",
+      payload: { key: "wrong-key" },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("GET /admin/session returns 401 without cookie", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/admin/session",
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("GET /admin/session returns 200 with valid cookie", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/admin/session",
+      cookies: { abs_session: ADMIN_KEY },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.payload).authenticated).toBe(true);
+  });
+
+  it("dashboard endpoints also accept x-admin-key header", async () => {
+    // Register handler for aggregate queries used by /admin/stats
+    registerAdminStatsHandlers(pool);
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/admin/system",
+      headers: { "x-admin-key": ADMIN_KEY },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+});
+
+describe("Admin Dashboard Endpoints", () => {
+  // Register mock handlers for aggregate SQL queries before each test
+  beforeEach(() => {
+    registerAdminStatsHandlers(pool);
+  });
+
+  it("GET /admin/stats returns overview stats", async () => {
+    // Seed some data
+    await createArena();
+    await createArena();
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/admin/stats",
+      cookies: { abs_session: ADMIN_KEY },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.arenas).toBeTruthy();
+    expect(body.agents).toBeTruthy();
+    expect(body.rake).toBeTruthy();
+    expect(body.payouts).toBeTruthy();
+    expect(body.creation_by_day).toBeDefined();
+    expect(body.status_distribution).toBeDefined();
+    expect(body.player_distribution).toBeDefined();
+  });
+
+  it("GET /admin/stats/agents returns agent leaderboard", async () => {
+    const arena = await createArena();
+    await openArena(arena.id as string);
+    await joinArena(arena.id as string, "agent-x", "Agent X");
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/admin/stats/agents",
+      cookies: { abs_session: ADMIN_KEY },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.agents).toBeDefined();
+  });
+
+  it("GET /admin/arenas/:id/detail returns deep view", async () => {
+    const arena = await createArena();
+    await openArena(arena.id as string);
+    await joinArena(arena.id as string, "agent-0", "Agent 0");
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/admin/arenas/${arena.id}/detail`,
+      cookies: { abs_session: ADMIN_KEY },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.arena).toBeTruthy();
+    expect(body.players).toHaveLength(1);
+    expect(body.rounds).toBeDefined();
+    expect(body.payouts).toBeDefined();
+    expect(typeof body.spectator_count).toBe("number");
+  });
+
+  it("GET /admin/arenas/:id/messages returns messages", async () => {
+    const arena = await createArena();
+    const arenaId = arena.id as string;
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/admin/arenas/${arenaId}/messages`,
+      cookies: { abs_session: ADMIN_KEY },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.messages).toBeDefined();
+    expect(typeof body.total).toBe("number");
+  });
+
+  it("GET /admin/arenas/:id/votes returns vote data", async () => {
+    const arena = await createArena();
+    const arenaId = arena.id as string;
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/admin/arenas/${arenaId}/votes`,
+      cookies: { abs_session: ADMIN_KEY },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.votes).toBeDefined();
+  });
+
+  it("GET /admin/payouts returns payout list", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/admin/payouts",
+      cookies: { abs_session: ADMIN_KEY },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.payouts).toBeDefined();
+    expect(typeof body.total).toBe("number");
+  });
+
+  it("GET /admin/system returns system health", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/admin/system",
+      cookies: { abs_session: ADMIN_KEY },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.server).toBeTruthy();
+    expect(body.server.started_at).toBeTruthy();
+    expect(typeof body.server.uptime_s).toBe("number");
+    expect(body.escrow).toBeTruthy();
+    expect(body.game_loop).toBeTruthy();
+    expect(typeof body.sse_connections).toBe("number");
+    expect(body.migrations).toBeDefined();
+  });
+
+  it("GET /admin/wallet/balance returns wallet info", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/admin/wallet/balance",
+      cookies: { abs_session: ADMIN_KEY },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("GET /admin/agents returns agent list", async () => {
+    const arena = await createArena();
+    await openArena(arena.id as string);
+    await joinArena(arena.id as string, "agent-test", "Test Agent");
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/admin/agents",
+      cookies: { abs_session: ADMIN_KEY },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.agents).toBeDefined();
+    expect(typeof body.total).toBe("number");
+  });
+
+  it("POST /admin/payouts/:id/retry returns 404 for nonexistent", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/admin/payouts/999/retry",
+      cookies: { abs_session: ADMIN_KEY },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Helper: register mock handlers for admin aggregate SQL
+// ---------------------------------------------------------------------------
+
+function registerAdminStatsHandlers(mockPool: ReturnType<typeof createMockPool>) {
+  // Overview stats (complex aggregate with FILTER)
+  mockPool.registerHandler(
+    /SELECT\s+COUNT\(\*\).*total_arenas/i,
+    (_sql, _params) => ({
+      rows: [{
+        total_arenas: mockPool.tables.get("arenas")?.length ?? 0,
+        active_arenas: mockPool.tables.get("arenas")?.filter((a) => a.status === "running").length ?? 0,
+        open_arenas: mockPool.tables.get("arenas")?.filter((a) => a.status === "open").length ?? 0,
+        completed_arenas: mockPool.tables.get("arenas")?.filter((a) => a.status === "complete").length ?? 0,
+        cancelled_arenas: mockPool.tables.get("arenas")?.filter((a) => a.status === "cancelled").length ?? 0,
+        total_prize_distributed: "0",
+        avg_duration_s: 0,
+      }],
+      rowCount: 1, command: "", oid: 0, fields: [],
+    }),
+  );
+
+  // Unique agents
+  mockPool.registerHandler(
+    /COUNT\(DISTINCT agent_id\).*unique_agents/i,
+    () => {
+      const players = mockPool.tables.get("arena_players") ?? [];
+      const unique = new Set(players.map((p) => p.agent_id));
+      return {
+        rows: [{ unique_agents: unique.size }],
+        rowCount: 1, command: "", oid: 0, fields: [],
+      };
+    },
+  );
+
+  // Total rake
+  mockPool.registerHandler(
+    /SUM\(amount_wei\).*total_rake/i,
+    () => ({
+      rows: [{ total_rake: "0" }],
+      rowCount: 1, command: "", oid: 0, fields: [],
+    }),
+  );
+
+  // Payout stats
+  mockPool.registerHandler(
+    /pending_payouts.*failed_payouts/i,
+    () => ({
+      rows: [{ pending_payouts: 0, failed_payouts: 0 }],
+      rowCount: 1, command: "", oid: 0, fields: [],
+    }),
+  );
+
+  // Creation by day
+  mockPool.registerHandler(
+    /DATE\(created_at\)\s+as\s+day.*GROUP BY/i,
+    () => ({
+      rows: [],
+      rowCount: 0, command: "", oid: 0, fields: [],
+    }),
+  );
+
+  // Status distribution
+  mockPool.registerHandler(
+    /SELECT\s+status,\s*COUNT.*GROUP BY status/i,
+    () => {
+      const arenas = mockPool.tables.get("arenas") ?? [];
+      const dist: Record<string, number> = {};
+      for (const a of arenas) {
+        const s = String(a.status);
+        dist[s] = (dist[s] ?? 0) + 1;
+      }
+      return {
+        rows: Object.entries(dist).map(([status, count]) => ({ status, count })),
+        rowCount: Object.keys(dist).length, command: "", oid: 0, fields: [],
+      };
+    },
+  );
+
+  // Player distribution
+  mockPool.registerHandler(
+    /SELECT\s+max_players.*GROUP BY max_players/i,
+    () => ({
+      rows: [],
+      rowCount: 0, command: "", oid: 0, fields: [],
+    }),
+  );
+
+  // Revenue time series
+  mockPool.registerHandler(
+    /DATE\(created_at\)\s+as\s+day.*rake/i,
+    () => ({
+      rows: [],
+      rowCount: 0, command: "", oid: 0, fields: [],
+    }),
+  );
+
+  // Agent leaderboard (complex aggregate)
+  mockPool.registerHandler(
+    /array_agg.*names_used.*arenas_played/i,
+    () => {
+      const players = mockPool.tables.get("arena_players") ?? [];
+      const byAgent: Record<string, { names: Set<string>; count: number; wins: number }> = {};
+      for (const p of players) {
+        const id = String(p.agent_id);
+        if (!byAgent[id]) byAgent[id] = { names: new Set(), count: 0, wins: 0 };
+        byAgent[id].names.add(String(p.display_name));
+        byAgent[id].count++;
+        if (p.status === "winner") byAgent[id].wins++;
+      }
+      return {
+        rows: Object.entries(byAgent).map(([agent_id, data]) => ({
+          agent_id,
+          names_used: Array.from(data.names),
+          arenas_played: data.count,
+          wins: data.wins,
+          win_rate: data.count > 0 ? Math.round(100 * data.wins / data.count * 10) / 10 : 0,
+          avg_survival_round: 1,
+          total_messages: 0,
+          total_votes_received: 0,
+        })),
+        rowCount: Object.keys(byAgent).length, command: "", oid: 0, fields: [],
+      };
+    },
+  );
+
+  // Agent list with LIMIT/OFFSET
+  mockPool.registerHandler(
+    /array_agg.*names_used.*last_seen.*LIMIT/i,
+    (_sql, params) => {
+      const players = mockPool.tables.get("arena_players") ?? [];
+      const byAgent: Record<string, { names: Set<string>; count: number; lastSeen: string }> = {};
+      for (const p of players) {
+        const id = String(p.agent_id);
+        if (!byAgent[id]) byAgent[id] = { names: new Set(), count: 0, lastSeen: "" };
+        byAgent[id].names.add(String(p.display_name));
+        byAgent[id].count++;
+        byAgent[id].lastSeen = String(p.joined_at);
+      }
+      const rows = Object.entries(byAgent).map(([agent_id, data]) => ({
+        agent_id,
+        names_used: Array.from(data.names),
+        arenas_played: data.count,
+        wins: 0,
+        last_seen: data.lastSeen,
+      }));
+      return {
+        rows,
+        rowCount: rows.length, command: "", oid: 0, fields: [],
+      };
+    },
+  );
+
+  // COUNT DISTINCT total agents
+  mockPool.registerHandler(
+    /COUNT\(DISTINCT agent_id\).*total.*FROM arena_players$/i,
+    () => {
+      const players = mockPool.tables.get("arena_players") ?? [];
+      const unique = new Set(players.map((p) => p.agent_id));
+      return {
+        rows: [{ total: unique.size }],
+        rowCount: 1, command: "", oid: 0, fields: [],
+      };
+    },
+  );
+
+  // Payout list with JOIN
+  mockPool.registerHandler(
+    /SELECT p\.\*.*FROM arena_payouts p.*JOIN arenas/i,
+    () => {
+      const payouts = mockPool.tables.get("arena_payouts") ?? [];
+      return {
+        rows: payouts,
+        rowCount: payouts.length, command: "", oid: 0, fields: [],
+      };
+    },
+  );
+
+  // Payout count
+  mockPool.registerHandler(
+    /COUNT\(\*\).*total.*FROM arena_payouts/i,
+    () => {
+      const payouts = mockPool.tables.get("arena_payouts") ?? [];
+      return {
+        rows: [{ total: payouts.length }],
+        rowCount: 1, command: "", oid: 0, fields: [],
+      };
+    },
+  );
+
+  // Single payout with JOIN (for retry)
+  mockPool.registerHandler(
+    /SELECT p\.\*.*a\.chain_id.*FROM arena_payouts p.*WHERE p\.id/i,
+    (_sql, params) => {
+      const payouts = mockPool.tables.get("arena_payouts") ?? [];
+      const payout = payouts.find((p) => Number(p.id) === Number(params[0]));
+      if (!payout) return { rows: [], rowCount: 0, command: "", oid: 0, fields: [] };
+      return {
+        rows: [{ ...payout, chain_id: "8453" }],
+        rowCount: 1, command: "", oid: 0, fields: [],
+      };
+    },
+  );
+
+  // Schema migrations
+  mockPool.registerHandler(
+    /SELECT.*FROM schema_migrations/i,
+    () => ({
+      rows: [{ name: "001-initial.sql", applied_at: new Date().toISOString() }],
+      rowCount: 1, command: "", oid: 0, fields: [],
+    }),
+  );
+
+  // Agent profile queries
+  mockPool.registerHandler(
+    /array_agg.*names_used.*avg_survival.*WHERE p\.agent_id/i,
+    (_sql, params) => {
+      const players = mockPool.tables.get("arena_players") ?? [];
+      const agentPlayers = players.filter((p) => p.agent_id === params[0]);
+      if (agentPlayers.length === 0) return { rows: [], rowCount: 0, command: "", oid: 0, fields: [] };
+      const names = [...new Set(agentPlayers.map((p) => String(p.display_name)))];
+      return {
+        rows: [{
+          agent_id: params[0],
+          names_used: names,
+          arenas_played: agentPlayers.length,
+          wins: agentPlayers.filter((p) => p.status === "winner").length,
+          losses: agentPlayers.filter((p) => p.status === "eliminated").length,
+          avg_survival_round: 1,
+        }],
+        rowCount: 1, command: "", oid: 0, fields: [],
+      };
+    },
+  );
+
+  // Arena history for agent
+  mockPool.registerHandler(
+    /p\.arena_id.*p\.status.*p\.eliminated_round.*WHERE p\.agent_id/i,
+    (_sql, params) => {
+      const players = mockPool.tables.get("arena_players") ?? [];
+      const arenas = mockPool.tables.get("arenas") ?? [];
+      const agentPlayers = players.filter((p) => p.agent_id === params[0]);
+      const rows = agentPlayers.map((p) => {
+        const arena = arenas.find((a) => a.id === p.arena_id);
+        return { ...p, max_players: arena?.max_players, entry_fee_wei: arena?.entry_fee_wei, prize_pool_wei: arena?.prize_pool_wei, arena_status: arena?.status, arena_created: arena?.created_at };
+      });
+      return { rows, rowCount: rows.length, command: "", oid: 0, fields: [] };
+    },
+  );
+
+  // Message stats for agent
+  mockPool.registerHandler(
+    /total_messages.*public_messages.*dms.*avg_length.*WHERE sender_id/i,
+    (_sql, params) => {
+      const msgs = mockPool.tables.get("arena_messages") ?? [];
+      const agentMsgs = msgs.filter((m) => m.sender_id === params[0]);
+      return {
+        rows: [{
+          total_messages: agentMsgs.length,
+          public_messages: agentMsgs.filter((m) => m.recipient_id == null).length,
+          dms: agentMsgs.filter((m) => m.recipient_id != null).length,
+          avg_length: 0,
+        }],
+        rowCount: 1, command: "", oid: 0, fields: [],
+      };
+    },
+  );
+
+  // Vote targets
+  mockPool.registerHandler(
+    /target_id.*times.*FROM arena_votes WHERE voter_id/i,
+    () => ({
+      rows: [],
+      rowCount: 0, command: "", oid: 0, fields: [],
+    }),
+  );
+
+  // Voted by
+  mockPool.registerHandler(
+    /voter_id.*times.*FROM arena_votes WHERE target_id/i,
+    () => ({
+      rows: [],
+      rowCount: 0, command: "", oid: 0, fields: [],
+    }),
+  );
+}

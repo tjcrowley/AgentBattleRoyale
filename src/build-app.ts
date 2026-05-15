@@ -237,6 +237,549 @@ export async function buildApp(opts: {
   });
 
   // -----------------------------------------------------------------------
+  // Admin dashboard — cookie auth
+  // -----------------------------------------------------------------------
+
+  const ADMIN_COOKIE = "abs_session";
+  const serverStartedAt = new Date().toISOString();
+
+  function requireAdminCookie(request: FastifyRequest): void {
+    const cookie = request.cookies[ADMIN_COOKIE];
+    if (cookie !== adminKey) {
+      // Also accept header-based auth for backward compat
+      const headerKey = request.headers["x-admin-key"];
+      if (headerKey !== adminKey) {
+        httpError(401, "Not authenticated");
+      }
+    }
+  }
+
+  // POST /admin/login — set session cookie
+  app.post("/admin/login", async (request, reply) => {
+    const body = request.body as { key?: string };
+    if (!body?.key || body.key !== adminKey) {
+      httpError(401, "Invalid admin key");
+    }
+    reply
+      .setCookie(ADMIN_COOKIE, adminKey, {
+        path: "/",
+        httpOnly: true,
+        sameSite: "strict",
+        maxAge: 86400, // 24 hours
+      })
+      .send({ success: true });
+  });
+
+  // GET /admin/session — check if authenticated
+  app.get("/admin/session", async (request) => {
+    requireAdminCookie(request);
+    return { authenticated: true };
+  });
+
+  // POST /admin/logout
+  app.post("/admin/logout", async (_request, reply) => {
+    reply
+      .clearCookie(ADMIN_COOKIE, { path: "/" })
+      .send({ success: true });
+  });
+
+  // -----------------------------------------------------------------------
+  // Admin dashboard — analytics endpoints
+  // -----------------------------------------------------------------------
+
+  // GET /admin/stats — aggregate overview stats
+  app.get("/admin/stats", async (request) => {
+    requireAdminCookie(request);
+
+    const arenaStats = await pool.query(`
+      SELECT
+        COUNT(*)::int as total_arenas,
+        COUNT(*) FILTER (WHERE status = 'running')::int as active_arenas,
+        COUNT(*) FILTER (WHERE status = 'open')::int as open_arenas,
+        COUNT(*) FILTER (WHERE status = 'complete')::int as completed_arenas,
+        COUNT(*) FILTER (WHERE status = 'cancelled')::int as cancelled_arenas,
+        COALESCE(SUM(prize_pool_wei) FILTER (WHERE status = 'complete'), 0)::text as total_prize_distributed,
+        COALESCE(AVG(EXTRACT(epoch FROM (completed_at - started_at)))
+          FILTER (WHERE status = 'complete' AND completed_at IS NOT NULL AND started_at IS NOT NULL), 0) as avg_duration_s
+      FROM arenas
+    `);
+
+    const agentStats = await pool.query(
+      `SELECT COUNT(DISTINCT agent_id)::int as unique_agents FROM arena_players`
+    );
+
+    const rakeStats = await pool.query(`
+      SELECT COALESCE(SUM(amount_wei), 0)::text as total_rake
+      FROM arena_payouts WHERE type = 'rake' AND status IN ('sent', 'confirmed')
+    `);
+
+    const payoutStats = await pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'pending')::int as pending_payouts,
+        COUNT(*) FILTER (WHERE status = 'failed')::int as failed_payouts
+      FROM arena_payouts
+    `);
+
+    // Arena creation by day (last 30 days)
+    const creationByDay = await pool.query(`
+      SELECT DATE(created_at) as day, COUNT(*)::int as count
+      FROM arenas
+      WHERE created_at >= now() - interval '30 days'
+      GROUP BY DATE(created_at)
+      ORDER BY day
+    `);
+
+    // Status distribution
+    const statusDist = await pool.query(`
+      SELECT status, COUNT(*)::int as count
+      FROM arenas GROUP BY status
+    `);
+
+    // Player count distribution
+    const playerDist = await pool.query(`
+      SELECT max_players, COUNT(*)::int as count
+      FROM arenas GROUP BY max_players ORDER BY max_players
+    `);
+
+    return {
+      arenas: arenaStats.rows[0],
+      agents: agentStats.rows[0],
+      rake: rakeStats.rows[0],
+      payouts: payoutStats.rows[0],
+      creation_by_day: creationByDay.rows,
+      status_distribution: statusDist.rows,
+      player_distribution: playerDist.rows,
+    };
+  });
+
+  // GET /admin/stats/revenue — daily revenue time series
+  app.get("/admin/stats/revenue", async (request) => {
+    requireAdminCookie(request);
+    const { rows } = await pool.query(`
+      SELECT
+        DATE(created_at) as day,
+        SUM(amount_wei)::text as rake_wei,
+        COUNT(*)::int as payout_count
+      FROM arena_payouts
+      WHERE type = 'rake'
+      GROUP BY DATE(created_at)
+      ORDER BY day
+    `);
+    return { revenue: rows };
+  });
+
+  // GET /admin/stats/agents — agent leaderboard
+  app.get("/admin/stats/agents", async (request) => {
+    requireAdminCookie(request);
+    const { rows } = await pool.query(`
+      SELECT
+        p.agent_id,
+        array_agg(DISTINCT p.display_name) as names_used,
+        COUNT(DISTINCT p.arena_id)::int as arenas_played,
+        COUNT(*) FILTER (WHERE p.status = 'winner')::int as wins,
+        CASE WHEN COUNT(*) > 0
+          THEN ROUND(100.0 * COUNT(*) FILTER (WHERE p.status = 'winner') / COUNT(*), 1)
+          ELSE 0 END as win_rate,
+        ROUND(AVG(COALESCE(p.eliminated_round, a.current_round)), 1) as avg_survival_round,
+        COALESCE((SELECT COUNT(*)::int FROM arena_messages m WHERE m.sender_id = p.agent_id), 0) as total_messages,
+        SUM(p.vote_count)::int as total_votes_received
+      FROM arena_players p
+      JOIN arenas a ON a.id = p.arena_id
+      GROUP BY p.agent_id
+      ORDER BY wins DESC, win_rate DESC
+    `);
+    return { agents: rows };
+  });
+
+  // GET /admin/arenas/:id/detail — deep arena view
+  app.get<{ Params: { id: string } }>(
+    "/admin/arenas/:id/detail",
+    async (request) => {
+      requireAdminCookie(request);
+      const arena = await repo.getArena(request.params.id);
+      if (!arena) httpError(404, "Arena not found");
+
+      const players = await repo.getPlayers(arena.id);
+      const voteHistory = await repo.getVoteHistory(arena.id);
+      const payouts = await repo.getPayouts(arena.id);
+
+      // Build round summaries
+      const rounds: Array<{
+        round: number;
+        message_count: number;
+        dm_count: number;
+        public_count: number;
+        votes: Record<string, number>;
+        vote_detail: Record<string, string>;
+        eliminated: string | null;
+        eliminated_name: string | null;
+      }> = [];
+
+      const maxRound = arena.current_round || 0;
+      for (let r = 1; r <= maxRound; r++) {
+        const allMsgs = await repo.getMessages(arena.id, { round: r });
+        const publicMsgs = allMsgs.filter((m) => m.recipient_id === null);
+        const dmMsgs = allMsgs.filter((m) => m.recipient_id !== null);
+
+        const roundVotes = voteHistory[r] ?? [];
+        const tally: Record<string, number> = {};
+        const detail: Record<string, string> = {};
+        for (const v of roundVotes) {
+          tally[v.target_id] = (tally[v.target_id] ?? 0) + 1;
+          detail[v.voter_id] = v.target_id;
+        }
+
+        const eliminated = players.find((p) => p.eliminated_round === r);
+
+        rounds.push({
+          round: r,
+          message_count: allMsgs.length,
+          dm_count: dmMsgs.length,
+          public_count: publicMsgs.length,
+          votes: tally,
+          vote_detail: detail,
+          eliminated: eliminated?.agent_id ?? null,
+          eliminated_name: eliminated?.display_name ?? null,
+        });
+      }
+
+      return {
+        arena,
+        players,
+        rounds,
+        payouts,
+        spectator_count: feed.getSpectatorCount(arena.id),
+      };
+    },
+  );
+
+  // GET /admin/arenas/:id/messages — paginated message log
+  app.get<{
+    Params: { id: string };
+    Querystring: { round?: string; limit?: string; offset?: string };
+  }>("/admin/arenas/:id/messages", async (request) => {
+    requireAdminCookie(request);
+    const arena = await repo.getArena(request.params.id);
+    if (!arena) httpError(404, "Arena not found");
+
+    const round = request.query.round
+      ? parseInt(request.query.round, 10)
+      : undefined;
+
+    const messages = await repo.getMessages(arena.id, { round });
+    const limit = Math.min(
+      parseInt(request.query.limit ?? "100", 10) || 100,
+      500,
+    );
+    const offset = parseInt(request.query.offset ?? "0", 10) || 0;
+
+    return {
+      messages: messages.slice(offset, offset + limit),
+      total: messages.length,
+    };
+  });
+
+  // GET /admin/arenas/:id/votes — vote detail per round
+  app.get<{
+    Params: { id: string };
+    Querystring: { round?: string };
+  }>("/admin/arenas/:id/votes", async (request) => {
+    requireAdminCookie(request);
+    const arena = await repo.getArena(request.params.id);
+    if (!arena) httpError(404, "Arena not found");
+
+    if (request.query.round) {
+      const round = parseInt(request.query.round, 10);
+      const votes = await repo.getVotes(arena.id, round);
+      return { round, votes };
+    }
+
+    const allVotes = await repo.getVoteHistory(arena.id);
+    return { votes: allVotes };
+  });
+
+  // GET /admin/agents — agent list with stats
+  app.get<{
+    Querystring: { limit?: string; offset?: string };
+  }>("/admin/agents", async (request) => {
+    requireAdminCookie(request);
+    const limit = Math.min(
+      parseInt(request.query.limit ?? "50", 10) || 50,
+      200,
+    );
+    const offset = parseInt(request.query.offset ?? "0", 10) || 0;
+
+    const { rows } = await pool.query(`
+      SELECT
+        p.agent_id,
+        array_agg(DISTINCT p.display_name) as names_used,
+        COUNT(DISTINCT p.arena_id)::int as arenas_played,
+        COUNT(*) FILTER (WHERE p.status = 'winner')::int as wins,
+        MAX(p.joined_at) as last_seen
+      FROM arena_players p
+      GROUP BY p.agent_id
+      ORDER BY arenas_played DESC
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
+
+    const countResult = await pool.query(
+      `SELECT COUNT(DISTINCT agent_id)::int as total FROM arena_players`
+    );
+
+    return { agents: rows, total: countResult.rows[0].total };
+  });
+
+  // GET /admin/agents/:id — single agent profile
+  app.get<{ Params: { id: string } }>(
+    "/admin/agents/:id",
+    async (request) => {
+      requireAdminCookie(request);
+      const agentId = request.params.id;
+
+      // Agent summary
+      const { rows: summary } = await pool.query(`
+        SELECT
+          p.agent_id,
+          array_agg(DISTINCT p.display_name) as names_used,
+          COUNT(DISTINCT p.arena_id)::int as arenas_played,
+          COUNT(*) FILTER (WHERE p.status = 'winner')::int as wins,
+          COUNT(*) FILTER (WHERE p.status = 'eliminated')::int as losses,
+          ROUND(AVG(COALESCE(p.eliminated_round, a.current_round)), 1) as avg_survival_round
+        FROM arena_players p
+        JOIN arenas a ON a.id = p.arena_id
+        WHERE p.agent_id = $1
+        GROUP BY p.agent_id
+      `, [agentId]);
+
+      if (summary.length === 0) httpError(404, "Agent not found");
+
+      // Arena history
+      const { rows: history } = await pool.query(`
+        SELECT
+          p.arena_id, p.status, p.eliminated_round, p.vote_count, p.joined_at,
+          a.max_players, a.entry_fee_wei, a.prize_pool_wei, a.status as arena_status,
+          a.created_at as arena_created
+        FROM arena_players p
+        JOIN arenas a ON a.id = p.arena_id
+        WHERE p.agent_id = $1
+        ORDER BY p.joined_at DESC
+      `, [agentId]);
+
+      // Messaging stats
+      const { rows: msgStats } = await pool.query(`
+        SELECT
+          COUNT(*)::int as total_messages,
+          COUNT(*) FILTER (WHERE recipient_id IS NULL)::int as public_messages,
+          COUNT(*) FILTER (WHERE recipient_id IS NOT NULL)::int as dms,
+          ROUND(AVG(CHAR_LENGTH(content)), 0)::int as avg_length
+        FROM arena_messages
+        WHERE sender_id = $1
+      `, [agentId]);
+
+      // Voting patterns: who this agent votes for most
+      const { rows: voteTargets } = await pool.query(`
+        SELECT target_id, COUNT(*)::int as times
+        FROM arena_votes WHERE voter_id = $1
+        GROUP BY target_id ORDER BY times DESC LIMIT 10
+      `, [agentId]);
+
+      // Who votes against this agent most
+      const { rows: votedBy } = await pool.query(`
+        SELECT voter_id, COUNT(*)::int as times
+        FROM arena_votes WHERE target_id = $1
+        GROUP BY voter_id ORDER BY times DESC LIMIT 10
+      `, [agentId]);
+
+      // SwarmTrade reputation
+      let swarmtradeProfile = null;
+      if (swarmtrade) {
+        try {
+          swarmtradeProfile = await swarmtrade.getAgentProfile(agentId);
+        } catch { /* graceful degradation */ }
+      }
+
+      return {
+        agent: summary[0],
+        history,
+        messaging: msgStats[0],
+        vote_targets: voteTargets,
+        voted_by: votedBy,
+        swarmtrade: swarmtradeProfile,
+      };
+    },
+  );
+
+  // GET /admin/payouts — filterable payout list
+  app.get<{
+    Querystring: {
+      status?: string;
+      type?: string;
+      limit?: string;
+      offset?: string;
+    };
+  }>("/admin/payouts", async (request) => {
+    requireAdminCookie(request);
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+    let paramIdx = 1;
+
+    if (request.query.status) {
+      const statuses = request.query.status.split(",");
+      const placeholders = statuses.map(() => `$${paramIdx++}`);
+      conditions.push(`p.status IN (${placeholders.join(",")})`);
+      values.push(...statuses);
+    }
+    if (request.query.type) {
+      conditions.push(`p.type = $${paramIdx++}`);
+      values.push(request.query.type);
+    }
+
+    const where = conditions.length > 0
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
+
+    const limit = Math.min(
+      parseInt(request.query.limit ?? "100", 10) || 100,
+      500,
+    );
+    const offset = parseInt(request.query.offset ?? "0", 10) || 0;
+
+    const { rows } = await pool.query(
+      `SELECT p.*, a.entry_fee_wei, a.chain_id, a.max_players
+       FROM arena_payouts p
+       JOIN arenas a ON a.id = p.arena_id
+       ${where}
+       ORDER BY p.created_at DESC
+       LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
+      [...values, limit, offset],
+    );
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*)::int as total FROM arena_payouts p ${where}`,
+      values,
+    );
+
+    return { payouts: rows, total: countResult.rows[0].total };
+  });
+
+  // POST /admin/payouts/:id/retry — retry a failed payout
+  app.post<{ Params: { id: string } }>(
+    "/admin/payouts/:id/retry",
+    async (request) => {
+      requireAdminCookie(request);
+      const payoutId = parseInt(request.params.id, 10);
+
+      const { rows } = await pool.query(
+        `SELECT p.*, a.chain_id FROM arena_payouts p
+         JOIN arenas a ON a.id = p.arena_id
+         WHERE p.id = $1`,
+        [payoutId],
+      );
+      if (rows.length === 0) httpError(404, "Payout not found");
+
+      const payout = rows[0];
+      if (payout.status !== "failed") {
+        httpError(400, `Payout status is '${payout.status}', expected 'failed'`);
+      }
+
+      // Skip rake payouts
+      if (payout.type === "rake") {
+        await repo.updatePayoutStatus(payoutId, "confirmed", "rake:retained");
+        return { status: "confirmed", tx_hash: "rake:retained" };
+      }
+
+      try {
+        const { txHash } = await escrow.sendPayout({
+          to: payout.agent_id,
+          amountWei: String(payout.amount_wei),
+          chainId: payout.chain_id,
+        });
+        await repo.updatePayoutStatus(payoutId, "sent", txHash);
+        return { status: "sent", tx_hash: txHash };
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        return { status: "failed", error: errorMsg };
+      }
+    },
+  );
+
+  // GET /admin/system — system health
+  app.get("/admin/system", async (request) => {
+    requireAdminCookie(request);
+
+    // Count active SSE connections across all arenas
+    let totalConnections = 0;
+    const runningArenas = await repo.listArenas({ status: "running" });
+    for (const arena of runningArenas) {
+      totalConnections += feed.getSpectatorCount(arena.id);
+    }
+
+    // Migration status
+    let migrations: Array<{ name: string; applied_at: string }> = [];
+    try {
+      const { rows } = await pool.query(
+        `SELECT name, applied_at FROM schema_migrations ORDER BY name`
+      );
+      migrations = rows.map((r) => ({
+        name: r.name,
+        applied_at: new Date(r.applied_at).toISOString(),
+      }));
+    } catch { /* table might not exist yet */ }
+
+    // SwarmTrade status
+    let swarmtradeStatus = "not_configured";
+    if (swarmtrade) {
+      try {
+        const rep = await swarmtrade.getAgentReputation("__health_check__");
+        swarmtradeStatus = rep === null ? "reachable" : "reachable";
+      } catch {
+        swarmtradeStatus = "unreachable";
+      }
+    }
+
+    return {
+      server: {
+        started_at: serverStartedAt,
+        uptime_s: Math.floor(
+          (Date.now() - new Date(serverStartedAt).getTime()) / 1000,
+        ),
+        node_version: process.version,
+        env: process.env.NODE_ENV ?? "development",
+      },
+      escrow: {
+        enabled: escrow.isEnabled(),
+        wallet: escrow.getWalletAddress() ?? null,
+      },
+      game_loop: {
+        tick_interval_s: 5,
+        running_arenas: runningArenas.length,
+      },
+      sse_connections: totalConnections,
+      migrations,
+      swarmtrade: {
+        status: swarmtradeStatus,
+        base_url: swarmtrade?.getBaseUrl?.() ?? null,
+      },
+    };
+  });
+
+  // GET /admin/wallet/balance — live on-chain balance (placeholder, requires RPC call)
+  app.get("/admin/wallet/balance", async (request) => {
+    requireAdminCookie(request);
+    const address = escrow.getWalletAddress();
+    if (!address) {
+      return { balance: null, error: "Escrow not enabled" };
+    }
+    // For now return the address; live balance query requires viem publicClient
+    // which we can add when needed
+    return {
+      address,
+      balance: null,
+      note: "Live balance query not yet implemented — check basescan.org",
+    };
+  });
+
+  // -----------------------------------------------------------------------
   // Public routes (no auth)
   // -----------------------------------------------------------------------
 
