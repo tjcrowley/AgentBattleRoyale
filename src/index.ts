@@ -5,9 +5,13 @@ import { SwarmTradeIntegration } from "./swarmtrade.js";
 import { runMigrations } from "./migrate.js";
 
 const connectionString = process.env.DATABASE_URL;
-const ssl = connectionString?.includes("sslmode=require")
-  ? { rejectUnauthorized: false }
-  : undefined;
+// DO managed databases use certs not in the default trust store.
+// Accept SSL for any remote connection (sslmode param or production env).
+const needsSsl =
+  connectionString?.includes("sslmode=") ||
+  connectionString?.includes(".db.ondigitalocean.com") ||
+  process.env.NODE_ENV === "production";
+const ssl = needsSsl ? { rejectUnauthorized: false } : undefined;
 const pool = new pg.Pool({ connectionString, ssl });
 const adminKey = process.env.ADMIN_API_KEY || "dev-admin-key";
 const port = parseInt(process.env.PORT || "8080", 10);
