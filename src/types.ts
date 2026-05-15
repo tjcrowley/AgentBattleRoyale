@@ -250,6 +250,13 @@ export interface AgentStateView {
 }
 
 // ---------------------------------------------------------------------------
+// Player count limits
+// ---------------------------------------------------------------------------
+
+export const MIN_PLAYERS = 8;
+export const MAX_PLAYERS = 100;
+
+// ---------------------------------------------------------------------------
 // Defaults
 // ---------------------------------------------------------------------------
 
@@ -258,3 +265,21 @@ export const DEFAULT_CONFIG: ArenaConfig = {
   voting_duration_s: 60,
   between_rounds_s: 30,
 } as const;
+
+// ---------------------------------------------------------------------------
+// Scaled config for variable player counts
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate phase durations scaled inversely to player count.
+ * More players → shorter phases (otherwise 100-player games last forever).
+ * Floors prevent phases from becoming too short to be playable.
+ */
+export function scaleConfig(playerCount: number): ArenaConfig {
+  if (playerCount <= 8) return { ...DEFAULT_CONFIG };
+  return {
+    alliance_duration_s: Math.max(60, Math.round(300 * (8 / playerCount))),
+    voting_duration_s: Math.max(20, Math.round(60 * (8 / playerCount))),
+    between_rounds_s: Math.max(10, Math.round(30 * (8 / playerCount))),
+  };
+}

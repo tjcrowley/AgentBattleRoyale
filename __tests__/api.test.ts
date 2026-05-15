@@ -135,6 +135,57 @@ describe("Arena Admin", () => {
     const body = JSON.parse(res.payload);
     expect(body.status).toBe("open");
   });
+
+  it("POST /admin/arenas accepts max_players 8–100", async () => {
+    for (const max of [8, 16, 50, 100]) {
+      const res = await app.inject({
+        method: "POST",
+        url: "/admin/arenas",
+        headers: { "x-admin-key": ADMIN_KEY },
+        payload: { entry_fee_wei: "10000000000000000", max_players: max },
+      });
+      expect(res.statusCode).toBe(201);
+      const body = JSON.parse(res.payload);
+      expect(body.max_players).toBe(max);
+    }
+  });
+
+  it("POST /admin/arenas rejects max_players < 8", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/admin/arenas",
+      headers: { "x-admin-key": ADMIN_KEY },
+      payload: { entry_fee_wei: "10000000000000000", max_players: 4 },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.payload).error).toContain("max_players");
+  });
+
+  it("POST /admin/arenas rejects max_players > 100", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/admin/arenas",
+      headers: { "x-admin-key": ADMIN_KEY },
+      payload: { entry_fee_wei: "10000000000000000", max_players: 200 },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.payload).error).toContain("max_players");
+  });
+
+  it("POST /admin/arenas auto-scales config for large arenas", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/admin/arenas",
+      headers: { "x-admin-key": ADMIN_KEY },
+      payload: { entry_fee_wei: "10000000000000000", max_players: 100 },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.payload);
+    // 100-player arena should have shorter phases than default 300s
+    expect(body.config.alliance_duration_s).toBe(60);
+    expect(body.config.voting_duration_s).toBe(20);
+    expect(body.config.between_rounds_s).toBe(10);
+  });
 });
 
 // ===========================================================================

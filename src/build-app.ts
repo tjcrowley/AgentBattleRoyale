@@ -14,6 +14,11 @@ import { SpectatorFeed } from "./spectator-feed.js";
 import { ArenaEscrow } from "./escrow.js";
 import { setupHealthMonitoring } from "./health.js";
 import type { SwarmTradeIntegration } from "./swarmtrade.js";
+import {
+  MIN_PLAYERS,
+  MAX_PLAYERS,
+  scaleConfig,
+} from "./types.js";
 import type {
   ArenaStatus,
   CreateArenaParams,
@@ -121,6 +126,14 @@ export async function buildApp(opts: {
     const body = request.body as CreateArenaParams;
     if (!body?.entry_fee_wei) {
       httpError(400, "entry_fee_wei is required");
+    }
+    const maxPlayers = body.max_players ?? 8;
+    if (maxPlayers < MIN_PLAYERS || maxPlayers > MAX_PLAYERS) {
+      httpError(400, `max_players must be between ${MIN_PLAYERS} and ${MAX_PLAYERS}`);
+    }
+    // Auto-generate scaled config if none provided
+    if (!body.config) {
+      body.config = scaleConfig(maxPlayers);
     }
     const arena = await repo.createArena(body);
     reply.status(201).send(arena);

@@ -3,6 +3,7 @@ import { createMockPool } from "./mock-pool.js";
 import { ArenaRepo } from "../src/arena-repo.js";
 import { GameEngine, djb2 } from "../src/game-engine.js";
 import type { BroadcastFn } from "../src/game-engine.js";
+import { scaleConfig, DEFAULT_CONFIG } from "../src/types.js";
 import type { Arena, SpectatorEvent } from "../src/types.js";
 
 // ---------------------------------------------------------------------------
@@ -958,5 +959,40 @@ describe("tick() Method", () => {
       (e) => e.event.event === "arena_cancelled",
     );
     expect(cancelEvent).toBeDefined();
+  });
+});
+
+// ===========================================================================
+// scaleConfig
+// ===========================================================================
+
+describe("scaleConfig", () => {
+  it("returns DEFAULT_CONFIG for 8 players", () => {
+    const cfg = scaleConfig(8);
+    expect(cfg).toEqual(DEFAULT_CONFIG);
+  });
+
+  it("returns DEFAULT_CONFIG for fewer than 8 players", () => {
+    expect(scaleConfig(4)).toEqual(DEFAULT_CONFIG);
+  });
+
+  it("scales down durations for 20 players", () => {
+    const cfg = scaleConfig(20);
+    expect(cfg.alliance_duration_s).toBe(120);
+    expect(cfg.voting_duration_s).toBe(24);
+    expect(cfg.between_rounds_s).toBe(12);
+  });
+
+  it("respects floor values for 100 players", () => {
+    const cfg = scaleConfig(100);
+    expect(cfg.alliance_duration_s).toBe(60);
+    expect(cfg.voting_duration_s).toBe(20);
+    expect(cfg.between_rounds_s).toBe(10);
+  });
+
+  it("does not mutate DEFAULT_CONFIG", () => {
+    const cfg = scaleConfig(8);
+    cfg.alliance_duration_s = 999;
+    expect(DEFAULT_CONFIG.alliance_duration_s).toBe(300);
   });
 });
