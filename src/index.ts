@@ -2,6 +2,7 @@ import pg from "pg";
 import { buildApp } from "./build-app.js";
 import { ArenaEscrow } from "./escrow.js";
 import { SwarmTradeIntegration } from "./swarmtrade.js";
+import { runMigrations } from "./migrate.js";
 
 const connectionString = process.env.DATABASE_URL;
 const ssl = connectionString?.includes("sslmode=require")
@@ -10,6 +11,9 @@ const ssl = connectionString?.includes("sslmode=require")
 const pool = new pg.Pool({ connectionString, ssl });
 const adminKey = process.env.ADMIN_API_KEY || "dev-admin-key";
 const port = parseInt(process.env.PORT || "8080", 10);
+
+// Run migrations before anything else
+await runMigrations(pool);
 
 const escrow = new ArenaEscrow(process.env.ESCROW_WALLET_PRIVATE_KEY);
 const swarmtrade = new SwarmTradeIntegration();
