@@ -4,13 +4,15 @@ import { ArenaEscrow } from "./escrow.js";
 import { SwarmTradeIntegration } from "./swarmtrade.js";
 import { runMigrations } from "./migrate.js";
 
-const connectionString = process.env.DATABASE_URL;
-// DO managed databases use certs not in the default trust store.
-// Accept SSL for any remote connection (sslmode param or production env).
+const rawUrl = process.env.DATABASE_URL ?? "";
+// pg v8.13+ parses sslmode=require from the URL and overrides our ssl config
+// with rejectUnauthorized:true, which breaks DO managed databases (self-signed CA).
+// Strip sslmode from the URL and handle SSL config ourselves.
 const needsSsl =
-  connectionString?.includes("sslmode=") ||
-  connectionString?.includes(".db.ondigitalocean.com") ||
+  rawUrl.includes("sslmode=") ||
+  rawUrl.includes(".db.ondigitalocean.com") ||
   process.env.NODE_ENV === "production";
+const connectionString = rawUrl.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
 const ssl = needsSsl ? { rejectUnauthorized: false } : undefined;
 const pool = new pg.Pool({ connectionString, ssl });
 const adminKey = process.env.ADMIN_API_KEY || "dev-admin-key";
